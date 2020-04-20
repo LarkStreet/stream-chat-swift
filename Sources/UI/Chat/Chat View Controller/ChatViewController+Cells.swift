@@ -184,19 +184,6 @@ extension ChatViewController {
         }
     }
     
-    private func show(attachment: Attachment, at index: Int, from attachments: [Attachment]) {
-        if attachment.isImage {
-            showMediaGallery(with: attachments.compactMap {
-                let logoImage = $0.type == .giphy ? UIImage.Logo.giphy : nil
-                return MediaGalleryItem(title: $0.title, url: $0.imageURL, logoImage: logoImage)
-            }, selectedIndex: index)
-            
-            return
-        }
-        
-        showWebView(url: attachment.url, title: attachment.title)
-    }
-    
     private func userActivityCell(at indexPath: IndexPath, user: User, _ text: String) -> UITableViewCell {
         let cell = tableView.dequeueMessageCell(for: indexPath, style: style.incomingMessage)
         cell.update(info: text)
