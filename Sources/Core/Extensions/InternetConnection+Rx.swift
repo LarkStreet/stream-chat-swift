@@ -7,7 +7,6 @@
 //
 
 import StreamChatClient
-import Reachability
 import RxSwift
 import RxCocoa
 import UIKit
@@ -20,7 +19,7 @@ extension Reactive where Base == InternetConnection {
     
     /// An observable Internet connection state.
     public var state: Observable<InternetConnection.State> {
-        NotificationCenter.default.rx.notification(.reachabilityChanged)
+        NotificationCenter.default.rx.notification(Notification.Name.reachabilityChanged)
             .subscribeOn(MainScheduler.instance)
             .flatMap({ notification -> Observable<InternetConnection.State> in
                 guard let reachability = notification.object as? Reachability else {
