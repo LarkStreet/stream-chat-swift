@@ -71,8 +71,8 @@ open class ChannelsViewController: ViewController {
         return tableView
     }()
     
-    private var needsToReload = false
-    private var needsToReloadIndexRows = Set<IndexPath>()
+    public var needsToReload = false
+    public var needsToReloadIndexRows = Set<IndexPath>()
     
     override open func viewDidLoad() {
         super.viewDidLoad()
@@ -102,7 +102,7 @@ open class ChannelsViewController: ViewController {
         needsToReloadIndexRows.removeAll()
     }
     
-    private func reset() {
+    public func reset() {
         disposeBag = DisposeBag()
         items = []
         
@@ -254,13 +254,8 @@ open class ChannelsViewController: ViewController {
     open func show(chatViewController: ChatViewController) {
         navigationController?.pushViewController(chatViewController, animated: true)
     }
-}
-
-// MARK: - Table View
-
-extension ChannelsViewController: UITableViewDataSource, UITableViewDelegate {
     
-    private func updateTableView(with changes: ViewChanges) {
+    open func updateTableView(with changes: ViewChanges) {
         // Update items.
         switch changes {
         case .itemsAdded(_, _, _, let items),
@@ -319,6 +314,12 @@ extension ChannelsViewController: UITableViewDataSource, UITableViewDelegate {
             break
         }
     }
+    
+}
+
+// MARK: - Table View
+
+extension ChannelsViewController: UITableViewDataSource, UITableViewDelegate {
     
     open func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         items.count
