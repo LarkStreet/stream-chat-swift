@@ -125,7 +125,7 @@ open class ChannelsViewController: ViewController {
     ///
     /// - Parameter indexPath: an index path
     /// - Returns: a channel presenter (See `ChannelPresenter`).
-    public func channelPresenter(at indexPath: IndexPath) -> ChannelPresenter? {
+    open func channelPresenter(at indexPath: IndexPath) -> ChannelPresenter? {
         if indexPath.row < items.count, case .channelPresenter(let channelPresenter) = items[indexPath.row] {
             return channelPresenter
         }
