@@ -188,7 +188,13 @@ public struct MessageViewStyle {
                                                        color: backgroundColor,
                                                        backgroundColor: chatBackgroundColor,
                                                        borderWidth: borderWidth,
-                                                       borderColor: borderColor)]
+                                                       borderColor: borderColor),
+                            .all: .renderRounded(cornerRadius: cornerRadius,
+                                                 type: .all,
+                                                 color: backgroundColor,
+                                                 backgroundColor: chatBackgroundColor,
+                                                 borderWidth: borderWidth,
+                                                 borderColor: borderColor)]
         
         transparentBackgroundImages = [.leftBottomCorner: .renderRounded(cornerRadius: cornerRadius,
                                                                          type: .leftBottomCorner,
@@ -209,7 +215,12 @@ public struct MessageViewStyle {
                                                                   type: .rightSide,
                                                                   color: backgroundColor,
                                                                   borderWidth: borderWidth,
-                                                                  borderColor: borderColor)]
+                                                                  borderColor: borderColor),
+                                       .all: .renderRounded(cornerRadius: cornerRadius,
+                                                            type: .all,
+                                                            color: backgroundColor,
+                                                            borderWidth: borderWidth,
+                                                            borderColor: borderColor)]
     }
 }
 
