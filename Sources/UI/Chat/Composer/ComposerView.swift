@@ -37,6 +37,8 @@ public final class ComposerView: UIView {
     
     var baseTextHeight = CGFloat.greatestFiniteMagnitude
     
+    private var activeElementsBackgroundColor: UIColor? = nil
+    
     /// An images collection view.
     public private(set) lazy var imagesCollectionView = setupImagesCollectionView()
     /// A files stack view.
@@ -129,6 +131,7 @@ public final class ComposerView: UIView {
                 sendButtonVisibilityBehaviorSubject.onNext((sendButton.isHidden, sendButton.isEnabled))
             }
             
+            sendButton.backgroundColor = activeElementsBackgroundColor
             attachmentButton.isEnabled = isEnabled
             imagesCollectionView.isUserInteractionEnabled = isEnabled
             imagesCollectionView.alpha = isEnabled ? 1 : 0.5
@@ -187,7 +190,8 @@ public extension ComposerView {
             addSubview(sendButton)
             
             sendButton.snp.makeConstraints { make in
-                make.height.equalTo(style.height)
+                make.top.equalToSuperview().offset(8.0).priority(990).constraint
+                make.bottom.equalToSuperview().offset(-8.0)
                 make.bottom.equalToSuperview()
                 sendButtonRightConstraint = make.right.equalToSuperview().constraint
             }
@@ -288,6 +292,8 @@ public extension ComposerView {
             sendButton.isEnabled = !isHidden
         }
         
+        self.sendButton.backgroundColor = activeElementsBackgroundColor
+        
         sendButtonVisibilityBehaviorSubject.onNext((sendButton.isHidden, sendButton.isEnabled))
     }
     
@@ -317,6 +323,8 @@ public extension ComposerView {
         textView.tintColor = styleForCurrentState.tintColor
         sendButton.tintColor = styleForCurrentState.tintColor
         attachmentButton.tintColor = styleForCurrentState.tintColor
+        
+        sendButton.backgroundColor = activeElementsBackgroundColor
         
         if styleState == .edit {
             sendButton.setTitleColor(styleForCurrentState.tintColor, for: .normal)
@@ -354,6 +362,79 @@ extension ComposerView {
         sendButtonWidthConstraint?.deactivate()
         sendButtonWidthConstraint = nil
         sendButtonRightConstraint?.update(offset: -rightEdgeOffset)
+    }
+    
+    /// Replace send button background color with a new color.
+    ///
+    /// - Parameters:
+    ///   - color: a new attachment button color.
+    public func setSendButtonBackgroundColor(_ color: UIColor) {
+        sendButton.backgroundColor = color
+        activeElementsBackgroundColor = color
+    }
+    
+    /// Replace send button with new corners radius.
+    ///
+    /// - Parameters:
+    ///   - color: a new send button color.
+    public func setSendButtonCornerRadius(_ radius: CGFloat) {
+        sendButton.clipsToBounds = true
+        sendButton.layer.cornerRadius = radius
+        sendButton.layer.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+    }
+    
+}
+
+// MARK: - Attachment Button Customization
+
+extension ComposerView {
+    
+    /// Replace attachment button image with a new image.
+    ///
+    /// - Parameters:
+    ///   - image: a new attachment button image.
+    public func setAttachmentButtonImage(_ image: UIImage) {
+        attachmentButton.setImage(image, for: .normal)
+    }
+    
+    /// Replace attachment button image with a title.
+    ///
+    /// - Parameters:
+    ///   - title: a attachment button title
+    public func setAttachmentButtonTitle(_ title: String) {
+        attachmentButton.setImage(nil, for: .normal)
+        attachmentButton.setTitle(title, for: .normal)
+    }
+    
+    /// Replace attachment button background color with a new color.
+    ///
+    /// - Parameters:
+    ///   - color: a new attachment button color.
+    public func setAttachmentBackgroundColor(_ color: UIColor) {
+        attachmentButton.backgroundColor = color
+    }
+}
+
+// MARK: - Composer TextView Customization
+
+extension ComposerView {
+    
+    /// Replace text view background color.
+    ///
+    /// - Parameters:
+    ///   - color: a new textview color.
+    public func setTextViewBackground(_ color: UIColor) {
+        textView.backgroundColor = color
+    }
+    
+    /// Replace  text view with new corners radius.
+    ///
+    /// - Parameters:
+    ///   - color: a new attachment button color.
+    public func setTextViewCornerRadius(_ radius: CGFloat) {
+        textView.clipsToBounds = true
+        textView.layer.cornerRadius = radius
+        textView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMinXMinYCorner]
     }
 }
 
