@@ -374,8 +374,16 @@ extension ChatViewController {
             return
         }
         
-        showWebView(url: attachment.url, title: attachment.title)
+        let title = parentMessage.replyCount == 1 ? "1 reply" : "\(parentMessage.replyCount) replies"
+        let button = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
+        button.tintColor = .chatGray
+        button.setTitleTextAttributes([.font: UIFont.chatMedium], for: .normal)
+        navigationItem.rightBarButtonItem = button
     }
+}
+
+// MARK: - Table View
+extension ChatViewController {
     
     open func updateTableView(with changes: ViewChanges) {
         switch changes {
@@ -458,58 +466,6 @@ extension ChatViewController {
         
         updateTitleReplyCount()
     }
-    
-    private func markReadIfPossible() {
-        if isVisible {
-            presenter?.rx.markReadIfPossible().subscribe().disposed(by: disposeBag)
-        }
-    }
-}
-
-// MARK: - Title
-
-extension ChatViewController {
-    
-    private func updateTitle() {
-        guard title == nil, navigationItem.rightBarButtonItem == nil, let presenter = presenter else {
-            return
-        }
-        
-        if presenter.parentMessage != nil {
-            title = "Thread"
-            updateTitleReplyCount()
-            return
-        }
-        
-        title = presenter.channel.name
-        let channelAvatar = AvatarView(cornerRadius: .messageAvatarRadius)
-        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: channelAvatar)
-        let imageURL = presenter.parentMessage == nil ? presenter.channel.imageURL : presenter.parentMessage?.user.avatarURL
-        channelAvatar.update(with: imageURL, name: title, baseColor: style.incomingMessage.chatBackgroundColor)
-    }
-    
-    private func updateTitleReplyCount() {
-        guard title == "Thread", let parentMessage = presenter?.parentMessage else {
-            return
-        }
-        
-        guard parentMessage.replyCount > 0 else {
-            navigationItem.rightBarButtonItem = nil
-            return
-        }
-        
-        let title = parentMessage.replyCount == 1 ? "1 reply" : "\(parentMessage.replyCount) replies"
-        let button = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
-        button.tintColor = .chatGray
-        button.setTitleTextAttributes([.font: UIFont.chatMedium], for: .normal)
-        navigationItem.rightBarButtonItem = button
-    }
-    
-}
-
-// MARK: - Table View
-
-extension ChatViewController {
     
     open func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         items.count
