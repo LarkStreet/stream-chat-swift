@@ -43,7 +43,7 @@ extension Notification.Name {
 }
 
 public class Reachability {
-    
+
     typealias NetworkReachable = (Reachability) -> ()
     typealias NetworkUnreachable = (Reachability) -> ()
     
@@ -58,7 +58,7 @@ public class Reachability {
             }
         }
     }
-    
+
     public enum Connection: CustomStringConvertible {
         @available(*, deprecated, renamed: "unavailable")
         case none
