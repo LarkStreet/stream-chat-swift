@@ -68,6 +68,8 @@ public final class ComposerView: UIView {
         button.setImage(UIImage.Icons.send, for: .normal)
         button.backgroundColor = backgroundColor
         button.titleLabel?.font = .chatMediumBold
+        button.contentVerticalAlignment = .bottom
+        button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 8.0, bottom: 8.0, right: 8.0)
         
         button.snp.makeConstraints {
             sendButtonWidthConstraint = $0.width.equalTo(CGFloat.composerButtonWidth).priority(999).constraint
