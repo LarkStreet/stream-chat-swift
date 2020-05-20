@@ -138,6 +138,7 @@ public final class ComposerView: UIView {
             imagesCollectionView.isUserInteractionEnabled = isEnabled
             imagesCollectionView.alpha = isEnabled ? 1 : 0.5
             textView.isEditable = isEnabled
+            textView.backgroundColor = activeElementsBackgroundColor
         }
     }
 }
