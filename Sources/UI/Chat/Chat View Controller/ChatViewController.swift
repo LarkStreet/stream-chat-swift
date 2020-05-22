@@ -289,7 +289,7 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
     ///   - message: a message.
     ///   - locationInView: a tap location in the cell.
     open func showActions(from cell: UITableViewCell, for message: Message, locationInView: CGPoint) {
-        guard let alert = defaultActionSheet(from: cell, for: message, locationInView: locationInView) else {
+        guard !message.isDeleted, let alert = defaultActionSheet(from: cell, for: message, locationInView: locationInView) else {
             return
         }
         
@@ -305,7 +305,9 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
     ///   - locationInView: a tap location in the cell.
     @available(iOS 13, *)
     open func createActionsContextMenu(from cell: UITableViewCell, for message: Message, locationInView: CGPoint) -> UIMenu? {
-        defaultActionsContextMenu(from: cell, for: message, locationInView: locationInView)
+        guard !message.isDeleted else { return nil }
+        
+        return defaultActionsContextMenu(from: cell, for: message, locationInView: locationInView)
     }
     
     /// Creates a chat view controller for the message being replied to.
@@ -321,14 +323,13 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
         
         return chatViewController
     }
-    
+
     open func show(attachment: Attachment, at index: Int, from attachments: [Attachment]) {
         if attachment.isImage {
             showMediaGallery(with: attachments.compactMap {
                 let logoImage = $0.type == .giphy ? UIImage.Logo.giphy : nil
                 return MediaGalleryItem(title: $0.title, url: $0.imageURL, logoImage: logoImage)
             }, selectedIndex: index)
-            
             return
         }
         
@@ -416,7 +417,7 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
         
         updateTitleReplyCount()
     }
-    
+
     private func markReadIfPossible() {
         if isVisible {
             presenter?.rx.markReadIfPossible().subscribe().disposed(by: disposeBag)
