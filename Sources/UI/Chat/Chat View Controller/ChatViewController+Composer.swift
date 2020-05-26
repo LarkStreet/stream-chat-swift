@@ -417,6 +417,10 @@ extension ChatViewController {
     }
     
     private func showAddFileView() {
+        guard attachmentButtonTapped == nil else {
+            attachmentButtonTapped?()
+            return
+        }
         guard let composerAddFileContainerView = composerAddFileContainerView,
             !composerAddFileContainerView.containerView.arrangedSubviews.isEmpty else {
                 return

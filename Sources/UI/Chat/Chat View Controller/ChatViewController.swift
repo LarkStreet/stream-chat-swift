@@ -77,6 +77,8 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
     private(set) lazy var composerCommandsContainerView = createComposerCommandsContainerView()
     private(set) lazy var composerAddFileContainerView = createComposerAddFileContainerView(title: "Add a file")
     
+    public var attachmentButtonTapped: (() -> Void)? = nil
+    
     /// A table view of messages.
     public private(set) lazy var tableView: TableView = {
         let tableView = TableView(frame: .zero, style: .plain)
