@@ -101,10 +101,10 @@ extension MessageTableViewCell {
         }
         
         if style.alignment == .left {
-            return offset == 0 ? messageContainerView.image : style.backgroundImages[.rightSide]?.image(for: traitCollection)
+            return offset == 0 ? messageContainerView.image : style.backgroundImages[.all]?.image(for: traitCollection)
         }
         
-        return offset == 0 ? messageContainerView.image : style.backgroundImages[.rightSide]?.image(for: traitCollection)
+        return offset == 0 ? messageContainerView.image : style.backgroundImages[.all]?.image(for: traitCollection)
     }
     
     private func imageMaskForAttachment(at offset: Int) -> UIImage? {
@@ -114,17 +114,17 @@ extension MessageTableViewCell {
         
         if style.alignment == .left {
             if offset == 0,
-                messageContainerViewImage == style.backgroundImages[.pointedLeftBottom]?.image(for: traitCollection) {
-                return style.transparentBackgroundImages[.pointedLeftBottom]?.image(for: traitCollection)
+                messageContainerViewImage == style.backgroundImages[.all]?.image(for: traitCollection) {
+                return style.transparentBackgroundImages[.all]?.image(for: traitCollection)
             }
             
-            return style.transparentBackgroundImages[.rightSide]?.image(for: traitCollection)
+            return style.transparentBackgroundImages[.all]?.image(for: traitCollection)
         }
         
-        if offset == 0, messageContainerViewImage == style.backgroundImages[.pointedRightBottom]?.image(for: traitCollection) {
-            return style.transparentBackgroundImages[.pointedRightBottom]?.image(for: traitCollection)
+        if offset == 0, messageContainerViewImage == style.backgroundImages[.all]?.image(for: traitCollection) {
+            return style.transparentBackgroundImages[.all]?.image(for: traitCollection)
         }
         
-        return style.transparentBackgroundImages[.leftSide]?.image(for: traitCollection)
+        return style.transparentBackgroundImages[.all]?.image(for: traitCollection)
     }
 }

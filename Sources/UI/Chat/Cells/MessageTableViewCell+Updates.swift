@@ -41,10 +41,10 @@ extension MessageTableViewCell {
         
         return style.alignment == .left
             ? (isContinueMessage
-                ? style.backgroundImages[.rightSide]?.image(for: traitCollection)
-                : style.backgroundImages[.pointedLeftBottom]?.image(for: traitCollection))
-            : (isContinueMessage ? style.backgroundImages[.leftSide]?.image(for: traitCollection)
-                : style.backgroundImages[.pointedRightBottom]?.image(for: traitCollection))
+                ? style.backgroundImages[.all]?.image(for: traitCollection)
+                : style.backgroundImages[.all]?.image(for: traitCollection))
+            : (isContinueMessage ? style.backgroundImages[.all]?.image(for: traitCollection)
+                : style.backgroundImages[.all]?.image(for: traitCollection))
     }
     
     func update(name: String? = nil, date: Date) {

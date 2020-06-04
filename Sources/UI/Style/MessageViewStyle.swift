@@ -223,7 +223,14 @@ public struct MessageViewStyle: Hashable {
                                                         color: backgroundColor,
                                                         backgroundColor: chatBackgroundColor,
                                                         borderWidth: borderWidth,
-                                                        borderColor: borderColor)]
+                                                        borderColor: borderColor),
+                            .all: BackgroundImage(cornerRadius: cornerRadius,
+                                                  pointedCornerRadius: pointedCornerRadius,
+                                                  corners: .all,
+                                                  color: backgroundColor,
+                                                  backgroundColor: chatBackgroundColor,
+                                                  borderWidth: borderWidth,
+                                                  borderColor: borderColor)]
         
         transparentBackgroundImages = [.pointedLeftBottom: BackgroundImage(cornerRadius: cornerRadius,
                                                                            pointedCornerRadius: pointedCornerRadius,
@@ -248,6 +255,12 @@ public struct MessageViewStyle: Hashable {
                                                                    corners: .rightSide,
                                                                    color: backgroundColor,
                                                                    borderWidth: borderWidth,
-                                                                   borderColor: borderColor)]
+                                                                   borderColor: borderColor),
+                                       .all: BackgroundImage(cornerRadius: cornerRadius,
+                                                             pointedCornerRadius: pointedCornerRadius,
+                                                             corners: .all,
+                                                             color: backgroundColor,
+                                                             borderWidth: borderWidth,
+                                                             borderColor: borderColor)]
     }
 }
