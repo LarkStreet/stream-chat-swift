@@ -9,8 +9,8 @@
 import UIKit
 
 extension UIRectCorner: Hashable {
-    public static let leftSide: UIRectCorner = [.topLeft, .bottomLeft]
-    public static let rightSide: UIRectCorner = [.topRight, .bottomRight]
-    public static let pointedLeftBottom: UIRectCorner = [.topLeft, .topRight, .bottomRight]
-    public static let pointedRightBottom: UIRectCorner = [.topLeft, .topRight, .bottomLeft]
+    public static let leftSide: UIRectCorner = [.allCorners]
+    public static let rightSide: UIRectCorner = [.allCorners]
+    public static let pointedLeftBottom: UIRectCorner = [.allCorners]
+    public static let pointedRightBottom: UIRectCorner = [.allCorners]
 }
