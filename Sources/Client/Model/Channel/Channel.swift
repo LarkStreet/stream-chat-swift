@@ -36,6 +36,8 @@ public final class Channel: Codable {
         case frozen
         /// Members.
         case members
+        /// The team the channel belongs to.
+        case team
     }
     
     /// Coding keys for the encoding.
@@ -74,6 +76,9 @@ public final class Channel: Codable {
     public internal(set) var watchers = Set<User>()
     /// A list of users to invite in the channel.
     let invitedMembers: Set<Member>
+    /// The team the channel belongs to. You need to enable multi-tenancy if you want to use this, else it'll be nil.
+    /// Refer to [docs](https://getstream.io/chat/docs/multi_tenant_chat/?language=swift) for more info.
+    public let team: String
     /// An extra data for the channel.
     public var extraData: ChannelExtraDataCodable?
     /// Check if the channel was deleted.
@@ -117,6 +122,9 @@ public final class Channel: Codable {
     
     private var subscriptionBag = SubscriptionBag()
     
+    let currentUserTypingLastDateAtomic = Atomic<Date?>()
+    let currentUserTypingTimerControlAtomic = Atomic<TimerControl?>()
+    
     /// Checks for the channel data encoding is empty.
     var isEmpty: Bool { extraData == nil && members.isEmpty && invitedMembers.isEmpty }
     
@@ -130,6 +138,7 @@ public final class Channel: Codable {
                 createdBy: User?,
                 lastMessageDate: Date?,
                 frozen: Bool,
+                team: String = "",
                 config: Config) {
         self.type = type
         self.id = id
@@ -142,6 +151,7 @@ public final class Channel: Codable {
         self.createdBy = createdBy
         self.lastMessageDate = lastMessageDate
         self.frozen = frozen
+        self.team = team
         self.config = config
         didLoad = false
     }
@@ -162,6 +172,7 @@ public final class Channel: Codable {
         createdBy = try container.decodeIfPresent(User.self, forKey: .createdBy)
         lastMessageDate = try container.decodeIfPresent(Date.self, forKey: .lastMessageDate)
         frozen = try container.decode(Bool.self, forKey: .frozen)
+        team = try container.decodeIfPresent(String.self, forKey: .team) ?? ""
         didLoad = true
         extraData = Channel.decodeChannelExtraData(from: decoder)
     }
@@ -222,6 +233,8 @@ public final class Channel: Codable {
     }
 }
 
+// MARK: - Equatable
+
 extension Channel: Equatable, CustomStringConvertible {
     
     public static func == (lhs: Channel, rhs: Channel) -> Bool {
@@ -234,7 +247,7 @@ extension Channel: Equatable, CustomStringConvertible {
     }
 }
 
-// MARK: Subscriptions
+// MARK: - Subscriptions
 
 extension Channel {
     
@@ -271,7 +284,7 @@ extension Channel {
     }
 }
 
-// MARK: Channel Extra Data Codable
+// MARK: - Channel Extra Data Codable
 
 extension Channel {
     
