@@ -69,11 +69,11 @@ public final class ComposerView: UIView {
     public private(set) lazy var sendButton: UIButton = {
         let button = UIButton(frame: .zero)
         button.setImage(UIImage.Icons.send, for: .normal)
-        button.backgroundColor = backgroundColor
         button.titleLabel?.font = .chatMediumBold
         button.contentVerticalAlignment = .bottom
         button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 8.0, bottom: 8.0, right: 8.0)
-        
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
         button.snp.makeConstraints {
             sendButtonWidthConstraint = $0.width.equalTo(CGFloat.composerButtonWidth).priority(999).constraint
         }
@@ -88,6 +88,9 @@ public final class ComposerView: UIView {
     
     private var sendButtonWidthConstraint: Constraint?
     private var sendButtonRightConstraint: Constraint?
+    
+    var imagesHeightConstraint: Constraint?
+    var textViewHeightConstraint: Constraint?
     
     /// An attachment button.
     public private(set) lazy var attachmentButton: UIButton = {
@@ -161,17 +164,20 @@ public extension ComposerView {
         
         // Add to superview.
         view.addSubview(self)
+        addSubview(textView)
         
+        let bottomInset = view.safeAreaInsets.bottom
+        
+        /// composer view should be layouted  related to the safeAreaLayoutGuide for smooth moving within the keyboard
         snp.makeConstraints { make in
             make.left.equalTo(view.safeAreaLayoutGuide.snp.leftMargin).offset(style.edgeInsets.left)
-            make.right.equalTo(view.safeAreaLayoutGuide.snp.rightMargin).offset(-style.edgeInsets.right)
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottomMargin).offset(-style.edgeInsets.bottom)
-            heightConstraint = make.height.equalTo(style.height).constraint
+            make.right.equalTo(view.safeAreaLayoutGuide.snp.rightMargin)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-style.edgeInsets.bottom + bottomInset)
         }
         
         // Apply style.
         backgroundColor = style.backgroundColor
-        clipsToBounds = true
+        
         layer.cornerRadius = style.cornerRadius
         layer.borderWidth = styleStateStyle?.borderWidth ?? 0
         layer.borderColor = styleStateStyle?.tintColor.cgColor ?? nil
@@ -180,9 +186,9 @@ public extension ComposerView {
         addSubview(attachmentButton)
         
         attachmentButton.snp.makeConstraints { make in
-            make.height.equalTo(style.height)
             make.left.equalToSuperview()
-            make.bottom.equalToSuperview()
+            make.top.equalTo(textView.snp.top).offset(3.0)
+            make.right.equalTo(textView.snp.left)
         }
         
         // Add buttons.
@@ -196,10 +202,9 @@ public extension ComposerView {
             addSubview(sendButton)
             
             sendButton.snp.makeConstraints { make in
-                make.top.equalToSuperview().offset(8.0).priority(990).constraint
-                make.bottom.equalToSuperview().offset(-8.0)
-                make.bottom.equalToSuperview()
-                sendButtonRightConstraint = make.right.equalToSuperview().constraint
+                make.top.equalTo(textView.snp.top)
+                make.bottom.equalTo(textView.snp.bottom)
+                sendButtonRightConstraint = make.right.equalToSuperview().offset(-style.edgeInsets.right).constraint
             }
         }
         
@@ -208,6 +213,7 @@ public extension ComposerView {
         
         imagesCollectionView.snp.makeConstraints { make in
             make.left.right.equalToSuperview()
+            make.bottom.equalTo(textView.snp.top)
             make.top.equalToSuperview()
         }
         
@@ -216,18 +222,18 @@ public extension ComposerView {
         
         filesStackView.snp.makeConstraints { make in
             make.left.right.equalToSuperview()
+            make.bottom.equalTo(textView.snp.top)
             make.top.equalToSuperview()
         }
         
         // Add text view.
-        addSubview(textView)
         updateTextHeightIfNeeded()
         textView.keyboardAppearance = style.textColor.isDark ? .default : .dark
         textView.backgroundColor = backgroundColor
         
         textView.snp.makeConstraints { make in
-            textViewTopConstraint = make.top.equalToSuperview().offset(textViewPadding).priority(990).constraint
-            make.bottom.equalToSuperview().offset(-textViewPadding)
+            textViewTopConstraint = make.top.equalToSuperview().offset(8.0).constraint
+            make.bottom.equalTo(self.snp.bottom).offset(-textViewPadding - bottomInset)
             
             if sendButton.superview == nil {
                 make.right.equalToSuperview().offset(-textViewPadding)
@@ -249,6 +255,7 @@ public extension ComposerView {
         }
         
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
+        textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
         // Blurred background.
         if style.backgroundColor == .clear {
@@ -299,6 +306,7 @@ public extension ComposerView {
             alsoSendToChannelButton.isSelected = true
             toggleAlsoSendToChannelButton()
         }
+        updateTextHeightIfNeeded()
     }
     
     /// Update the placeholder and send button visibility.
@@ -436,6 +444,12 @@ extension ComposerView {
         sendButton.layer.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
     }
     
+    public func addShadow(color: UIColor, shadowRadius: CGFloat) {
+        self.layer.shadowColor = color.cgColor
+        self.layer.shadowRadius = shadowRadius
+        self.layer.shadowOffset = CGSize(width: 0, height: shadowRadius / 4)
+        self.layer.shadowOpacity = 1
+    }
 }
 
 // MARK: - Attachment Button Customization
