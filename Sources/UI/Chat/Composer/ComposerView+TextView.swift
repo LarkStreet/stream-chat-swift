@@ -107,7 +107,6 @@ extension ComposerView {
                 textViewHeightConstraint?.update(offset: textViewHeight)
                 textViewHeightConstraint?.isActive = true
                 textView.isScrollEnabled = shouldEnableScroll
-
                 setNeedsLayout()
                 layoutIfNeeded()
             }
@@ -116,6 +115,7 @@ extension ComposerView {
                 constraint.isActive = false
                 textViewHeightConstraint = nil
                 textView.isScrollEnabled = shouldEnableScroll
+                textView.frame = CGRect(width: textView.frame.size.width, height: baseTextHeight)
                 setNeedsLayout()
                 layoutIfNeeded()
             }
