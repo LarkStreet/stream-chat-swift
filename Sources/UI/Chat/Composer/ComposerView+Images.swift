@@ -33,8 +33,8 @@ extension ComposerView: UICollectionViewDataSource, UICollectionViewDelegate {
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.register(cellType: AttachmentCollectionViewCell.self)
-        collectionView.snp.makeConstraints { $0.height.equalTo(CGFloat.composerAttachmentsHeight) }
-        
+        collectionView.snp.makeConstraints { imagesHeightConstraint = $0.height.equalTo(CGFloat.composerAttachmentSize).constraint }
+        collectionView.setContentCompressionResistancePriority(.required, for: .vertical)
         return collectionView
     }
     

@@ -42,19 +42,18 @@ extension ComposerView {
         updateTextHeight(textView.attributedText.length > 0 ? textViewContentSize.height.rounded() : baseTextHeight)
     }
     
-    private func updateTextHeight(_ height: CGFloat) {
-        guard let heightConstraint = heightConstraint, let style = style else {
+    private func updateTextHeight(_ textHeight: CGFloat) {
+        guard let style = style else {
             return
         }
-        
         var maxHeight = CGFloat.composerMaxHeight
-        
+        let filesHeight = CGFloat.composerFileHeight * CGFloat(filesStackView.arrangedSubviews.count)
+
         if !imagesCollectionView.isHidden {
             maxHeight -= .composerAttachmentsHeight
         }
         
         if !filesStackView.isHidden {
-            let filesHeight = CGFloat.composerFileHeight * CGFloat(filesStackView.arrangedSubviews.count)
             maxHeight -= filesHeight
         }
         
@@ -62,13 +61,22 @@ extension ComposerView {
             imagesCollectionView.isHidden = uploadManager.images.isEmpty
             filesStackView.isHidden = uploadManager.files.isEmpty
         }
+        var height = min(max(textHeight + 2 * textViewPadding, style.height), maxHeight)
+        var textViewTopOffset: CGFloat = 8.0
         
-        var height = min(max(height + 2 * textViewPadding, style.height), maxHeight)
-        var textViewTopOffset = textViewPadding
+        let isImagesHidden = imagesCollectionView.isHidden
         
-        if !imagesCollectionView.isHidden {
+        if !isImagesHidden {
             height += .composerAttachmentsHeight
             textViewTopOffset += .composerAttachmentsHeight
+        }
+        
+        let constant: CGFloat = isImagesHidden ? 0 : .composerAttachmentsHeight
+        
+        if let constraint = imagesHeightConstraint, constraint.layoutConstraints.first?.constant != constant {
+            constraint.update(offset: constant)
+            setNeedsLayout()
+            layoutIfNeeded()
         }
         
         if !filesStackView.isHidden {
@@ -77,12 +85,40 @@ extension ComposerView {
             textViewTopOffset += filesHeight
         }
         
-        textView.isScrollEnabled = height >= CGFloat.composerMaxHeight
-        
-        if heightConstraint.layoutConstraints.first?.constant != height {
-            heightConstraint.update(offset: height)
-            setNeedsLayout()
-            layoutIfNeeded()
+        var shouldEnableScroll = height >= CGFloat.composerMaxHeight
+
+        if shouldEnableScroll {
+            /// we should calculate it manually because user can "paste" a large amount of text
+            var textViewHeight = height - textViewTopOffset - safeAreaInsets.bottom
+            if textView.frame.size.height > textViewHeight {
+                textViewHeight = textView.frame.size.height
+            }
+            
+            if textViewHeightConstraint == nil {
+                textView.snp.makeConstraints { make in
+                    textViewHeightConstraint = make.height.equalTo(textViewHeight).constraint
+                }
+                textView.isScrollEnabled = shouldEnableScroll
+
+                setNeedsLayout()
+                layoutIfNeeded()
+            }
+            if textViewHeightConstraint?.layoutConstraints.first?.constant != textViewHeight {
+                textViewHeightConstraint?.update(offset: textViewHeight)
+                textViewHeightConstraint?.isActive = true
+                textView.isScrollEnabled = shouldEnableScroll
+                setNeedsLayout()
+                layoutIfNeeded()
+            }
+        } else {
+            if let constraint = textViewHeightConstraint {
+                constraint.isActive = false
+                textViewHeightConstraint = nil
+                textView.isScrollEnabled = shouldEnableScroll
+                textView.frame = CGRect(width: textView.frame.size.width, height: baseTextHeight)
+                setNeedsLayout()
+                layoutIfNeeded()
+            }
         }
         
         if textViewTopConstraint?.layoutConstraints.first?.constant != textViewTopOffset {
@@ -95,16 +131,17 @@ extension ComposerView {
     }
     
     func updateToolbarIfNeeded() {
-        guard let style = style, let composerViewHeight = heightConstraint?.layoutConstraints.first?.constant else {
+        guard let style = style else {
             return
         }
-        
-        let height = composerViewHeight + style.edgeInsets.top + style.edgeInsets.bottom
-        
+
+        let height = self.frame.height + style.edgeInsets.top + style.edgeInsets.bottom
+
         guard toolBar.frame.height != height else {
             return
         }
         
+        /// toolbar is needed for smooth composer animation within the keyboard  :)
         toolBar = UIToolbar(frame: CGRect(width: UIScreen.main.bounds.width, height: height))
         toolBar.isHidden = true
         textView.inputAccessoryView = toolBar
