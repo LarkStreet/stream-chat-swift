@@ -42,19 +42,18 @@ extension ComposerView {
         updateTextHeight(textView.attributedText.length > 0 ? textViewContentSize.height.rounded() : baseTextHeight)
     }
     
-    private func updateTextHeight(_ height: CGFloat) {
+    private func updateTextHeight(_ textHeight: CGFloat) {
         guard let style = style else {
             return
         }
-        
         var maxHeight = CGFloat.composerMaxHeight
-        
+        let filesHeight = CGFloat.composerFileHeight * CGFloat(filesStackView.arrangedSubviews.count)
+
         if !imagesCollectionView.isHidden {
             maxHeight -= .composerAttachmentsHeight
         }
         
         if !filesStackView.isHidden {
-            let filesHeight = CGFloat.composerFileHeight * CGFloat(filesStackView.arrangedSubviews.count)
             maxHeight -= filesHeight
         }
         
@@ -62,8 +61,7 @@ extension ComposerView {
             imagesCollectionView.isHidden = uploadManager.images.isEmpty
             filesStackView.isHidden = uploadManager.files.isEmpty
         }
-        
-        var height = min(max(height + 2 * textViewPadding, style.height), maxHeight)
+        var height = min(max(textHeight + 2 * textViewPadding, style.height), maxHeight)
         var textViewTopOffset: CGFloat = 8.0
         
         let isImagesHidden = imagesCollectionView.isHidden
@@ -90,22 +88,23 @@ extension ComposerView {
         var shouldEnableScroll = height >= CGFloat.composerMaxHeight
 
         if shouldEnableScroll {
-            let bottomSpace = frame.size.height - textView.frame.origin.y - textView.frame.size.height
-            var value = maxHeight - 8.0 - bottomSpace /// we should calculate it manually because user can "paste" a large amount of text
-            if textView.frame.size.height > value {
-                value = textView.frame.size.height
+            /// we should calculate it manually because user can "paste" a large amount of text
+            var textViewHeight = height - textViewTopOffset - safeAreaInsets.bottom
+            if textView.frame.size.height > textViewHeight {
+                textViewHeight = textView.frame.size.height
             }
+            
             if textViewHeightConstraint == nil {
                 textView.snp.makeConstraints { make in
-                    textViewHeightConstraint = make.height.equalTo(value).constraint
+                    textViewHeightConstraint = make.height.equalTo(textViewHeight).constraint
                 }
                 textView.isScrollEnabled = shouldEnableScroll
 
                 setNeedsLayout()
                 layoutIfNeeded()
             }
-            if textViewHeightConstraint?.layoutConstraints.first?.constant != value {
-                textViewHeightConstraint?.update(offset: value)
+            if textViewHeightConstraint?.layoutConstraints.first?.constant != textViewHeight {
+                textViewHeightConstraint?.update(offset: textViewHeight)
                 textViewHeightConstraint?.isActive = true
                 textView.isScrollEnabled = shouldEnableScroll
 
@@ -113,11 +112,13 @@ extension ComposerView {
                 layoutIfNeeded()
             }
         } else {
-            textViewHeightConstraint?.isActive = false
-            textView.isScrollEnabled = shouldEnableScroll
-
-            setNeedsLayout()
-            layoutIfNeeded()
+            if let constraint = textViewHeightConstraint {
+                constraint.isActive = false
+                textViewHeightConstraint = nil
+                textView.isScrollEnabled = shouldEnableScroll
+                setNeedsLayout()
+                layoutIfNeeded()
+            }
         }
         
         if textViewTopConstraint?.layoutConstraints.first?.constant != textViewTopOffset {

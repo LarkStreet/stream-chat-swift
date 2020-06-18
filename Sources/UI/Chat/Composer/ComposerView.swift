@@ -59,9 +59,10 @@ public final class ComposerView: UIView {
         label.snp.makeConstraints { make in
             make.left.equalTo(textView.textContainer.lineFragmentPadding)
             make.top.equalTo(textView.textContainerInset.top)
+            make.bottom.equalTo(textView.textContainerInset.bottom)
             make.right.equalToSuperview()
         }
-        
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
         return label
     }()
     
@@ -232,9 +233,10 @@ public extension ComposerView {
         textView.backgroundColor = backgroundColor
         
         textView.snp.makeConstraints { make in
-            textViewTopConstraint = make.top.equalToSuperview().offset(8.0).constraint
-            make.bottom.equalTo(self.snp.bottom).offset(-textViewPadding - bottomInset)
-            
+            textViewTopConstraint = make.top.equalToSuperview().offset(textViewPadding).constraint
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-textViewPadding)
+            make.height.greaterThanOrEqualTo(baseTextHeight)
+
             if sendButton.superview == nil {
                 make.right.equalToSuperview().offset(-textViewPadding)
             } else {
@@ -306,7 +308,6 @@ public extension ComposerView {
             alsoSendToChannelButton.isSelected = true
             toggleAlsoSendToChannelButton()
         }
-        updateTextHeightIfNeeded()
     }
     
     /// Update the placeholder and send button visibility.
