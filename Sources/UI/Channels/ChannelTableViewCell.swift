@@ -46,7 +46,7 @@ open class ChannelTableViewCell: UITableViewCell, Reusable {
     }()
     
     /// An info label.
-    private let infoLabel: UILabel = {
+    public let infoLabel: UILabel = {
         let label = UILabel(frame: .zero)
         label.font = .chatSmall
         label.textColor = .chatGray
@@ -60,7 +60,7 @@ open class ChannelTableViewCell: UITableViewCell, Reusable {
     
     /// Setup style and layouts.
     /// - Parameter style: a message view style.
-    public func setupIfNeeded(style: ChannelViewStyle) {
+    open func setupIfNeeded(style: ChannelViewStyle) {
         guard needsToSetup else {
             return
         }
@@ -156,7 +156,7 @@ open class ChannelTableViewCell: UITableViewCell, Reusable {
         }
     }
     
-    func reset() {
+    open func reset() {
         if style.avatarViewStyle != nil {
             avatarView.reset()
         }
