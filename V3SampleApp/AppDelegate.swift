@@ -10,10 +10,10 @@ import UIKit
 @testable import StreamChatClient_v3
 
 let chatClient: ChatClient = {
-    var config = ChatClientConfig(apiKey: "qk4nn7rpcn75")
+    var config = ChatClientConfig(apiKey: APIKey("qk4nn7rpcn75"))
     config.isLocalStorageEnabled = false
     
-    let user = User(id: "broken-waterfall-5", name: "Tester", avatarURL: nil)
+    let user = User(id: "broken-waterfall-5", name: "Tester", imageURL: nil)
     return ChatClient(currentUser: user, config: config)
 }()
 
@@ -21,6 +21,14 @@ let chatClient: ChatClient = {
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        
+        LogConfig.formatters = [PrefixLogFormatter(prefixes: [.info: "𝒊", .debug: "🛠", .warning: "⚠️", .error: "🚨"])]
+        
+        LogConfig.showThreadName = false
+        LogConfig.showDate = false
+        LogConfig.showFunctionName = false
+        
+        LogConfig.level = .info
         
         chatClient.webSocketClient.connect()
         
@@ -41,4 +49,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
 }
-

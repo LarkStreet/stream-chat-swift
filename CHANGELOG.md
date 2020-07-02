@@ -7,13 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Upcoming
 
 ### ✅ Added
+- `ChatViewController.preferredEmojiOrder` to specify order of emojis in reaction view [#337](https://github.com/GetStream/stream-chat-swift/pull/337)
+
+### 🔄 Changed
+
+### 🐞 Fixed
+- Increasing username label font size (`MessageViewStyle.nameFont`) in message cell caused cut off [#333](https://github.com/GetStream/stream-chat-swift/issues/333)
+- Emojis in reaction view not displayed consistent order [#332](https://github.com/GetStream/stream-chat-swift/issues/332)
+
+# [2.2.5](https://github.com/GetStream/stream-chat-swift/releases/tag/2.2.5)
+_June 24, 2020_
+
+### ⚠️ Deprecated
+- `UsersQuery.sort` property is deprecated, please use `UsersQuery.sorting` [#328](https://github.com/GetStream/stream-chat-swift/issues/328)
+
+### ✅ Added
+- `Message.translate` for message translations. Please see [docs](https://getstream.io/chat/docs/translation/?language=swift) for more info [#319](https://github.com/GetStream/stream-chat-swift/issues/319)
+- `user.unbanned` event added [#319](https://github.com/GetStream/stream-chat-swift/issues/319)
+- `PinStyle` for `ComposerViewStyle` with options [#329](https://github.com/GetStream/stream-chat-swift/issues/329):
+  - `.floating` - shows `ComposerView` over messages (by default).
+  - `.solid` - shows messages above `ComposerView` with a `ComposerViewStyle` top edge inset.
+- `queryUsers` with multiple sorting options support [#328](https://github.com/GetStream/stream-chat-swift/issues/328)
+  Signature: `queryUsers(filter:sorting:pagination:options:completion)`
+
+### 🐞 Fixed
+- `queryUsers`  and `UsersQuery` now respect `sorting` parameter [#328](https://github.com/GetStream/stream-chat-swift/issues/328)
+
+# [2.2.4](https://github.com/GetStream/stream-chat-swift/releases/tag/2.2.4)
+_June 12, 2020_
+
+### ✅ Added
+- `ClientLogger.showConnectionErrorAlert` flag to control showing the UI alert for WebSocket errors. It's turned off by default. [#303](https://github.com/GetStream/stream-chat-swift/issues/303)
+
+### 🔄 Changed
+- Calling `Client.configureShared` with the same config more than once does not cause assertion failure. This is still discouraged and should not be done, and will not take affect. Calling it with different configs will still cause assertion failure. [#313](https://github.com/GetStream/stream-chat-swift/issues/313)
+   Note: Changing `apiKey` only is possible via `Client.shared.apiKey`
+
+### 🐞 Fixed
+- `Channel.team` not being correctly encoded for multi-tenant enabled clients [#308](https://github.com/GetStream/stream-chat-swift/issues/308)
+- Channels not loading on ChannelsVC after opening the app from background using `stayConnectedInBackground: false` and no logger [#308](https://github.com/GetStream/stream-chat-swift/issues/308)
+- Fixed an error in ChatViewController: a new message would scroll the messages up even when there's empty space [#310](https://github.com/GetStream/stream-chat-swift/issues/310).
+- Fixed the default background color for a placeholder image or when the image wasn't loaded to make the size of it visible [#310](https://github.com/GetStream/stream-chat-swift/issues/310).
+- Fixed height rendering for a message for messages with a single line [#310](https://github.com/GetStream/stream-chat-swift/issues/310).
+- Fixed rendering of a message bubble curve more precisely [#310](https://github.com/GetStream/stream-chat-swift/issues/310).
+- Fixed scrolling to the current message when you go to the last page [#310](https://github.com/GetStream/stream-chat-swift/issues/310).
+- Fix ChannelsPresenter not respecting filter for new created/added channels [#313](https://github.com/GetStream/stream-chat-swift/issues/313)
+
+# [2.2.3](https://github.com/GetStream/stream-chat-swift/releases/tag/2.2.3)
+_June 05, 2020_
+
+### ✅ Added
 - Support new regions: Singapore and Sydney. [#293](https://github.com/GetStream/stream-chat-swift/pull/293)
 - `disableLocalNotifications` added to `Notifications` for disabling local notifications [#290](https://github.com/GetStream/stream-chat-swift/pull/290)
 - Send a keystroke event for the current user: `channel.keystroke {}`. The method will automatically send a typing stop event after 15 seconds after the last call of `keystroke()`. [#281](https://github.com/GetStream/stream-chat-swift/pull/281)
 - Send a stop typing event for the current user: `stopTyping {}`. Usually, you don't need to call this method directly. [#281](https://github.com/GetStream/stream-chat-swift/pull/281)
+- Automatically send a `typingStop` event if it's not received in 30 seconds after the latest `typingStart` event [#282](https://github.com/GetStream/stream-chat-swift/issues/282).
 - Add support for multi-tenancy. Refer to [docs](https://getstream.io/chat/docs/multi_tenant_chat/?language=swift) for more info [#295](https://github.com/GetStream/stream-chat-swift/issues/295)
 
 ### 🔄 Changed
+- Unknown user is not used anymore. By default the current user is anonymous (you can check this with `isAnonymous`). Anyway you can't connect without `set(user:token:)` or `setGuestUser(user:)` or `setAnonymousUser()` [#284](https://github.com/GetStream/stream-chat-swift/issues/284).
+- You can subscribe to events as soon as the client is configured. This means that your subscriptions will work until the client disconnect (user login/logout) and until you cancel subscriptions [#284](https://github.com/GetStream/stream-chat-swift/issues/284).
+
+### 🐞 Fixed
+- Fixed `rx.connectionState` observation when a user logged out and login again [#284](https://github.com/GetStream/stream-chat-swift/issues/284).
+- Fixed updates not happening in `ChannelPresenter` initialized with `ChannelResponse` and queryOptions containing `.watch` [#301](https://github.com/GetStream/stream-chat-swift/pull/301)
 
 # [2.2.2](https://github.com/GetStream/stream-chat-swift/releases/tag/2.2.2)
 _May 27, 2020_

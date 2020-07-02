@@ -20,14 +20,10 @@ final class WebSocketTests: XCTestCase {
     var connectionId: String!
     var user: User!
     
-    var emittedEvents: [Event]!
-    
     let logger = ClientLogger(icon: "🦄", level: .info)
     
     override func setUp() {
         super.setUp()
-        
-        emittedEvents = []
         
         time = VirtualTime()
         VirtualTimeTimer.time = time
@@ -35,8 +31,7 @@ final class WebSocketTests: XCTestCase {
         socketProvider = WebSocketProviderMock()
         webSocket = WebSocket(socketProvider,
                               options: [],
-                              timerType: VirtualTimeTimer.self,
-                              onEvent: { self.emittedEvents.append($0) })
+                              timerType: VirtualTimeTimer.self)
         
         connectionId = UUID().uuidString
         user = User(id: "test_user_\(UUID().uuidString)")
@@ -118,35 +113,53 @@ final class WebSocketTests: XCTestCase {
         time.run(numberOfSeconds: 3 * pingInterval)
         XCTAssertEqual(socketProvider.sendPingCalledCounter, 1 + 3)
     }
+    
+    func test_typingEvent_stopTyping_afterTimeout() {
+        // Setup (connect)
+        test_connectionFlow()
+        
+        // Set `shouldAutomaticallySendTypingStopEvent` to `true`
+        let delegate = MockDelegate()
+        delegate.shouldAutomaticallySendTypingStopEvent = true
+        webSocket.eventDelegate = delegate
+        
+        // Simulate some user started typing
+        let otherUser = User(id: UUID().uuidString)
+        socketProvider.simulateMessageReceived(.typingStartEvent(userId: otherUser.id))
+        
+        var nextEvent: Event?
+        _ = webSocket.subscribe { nextEvent = $0 }
+
+        // Wait for the timeout and expect a `typingStop` event.
+        time.run(numberOfSeconds: WebSocket.incomingTypingStartEventTimeout + 1)
+        AssertAsync.willBeEqual(nextEvent, .typingStop(otherUser, nil, .typingStop))
+    }
+    
+    func test_typingEvent_stopTyping_notSentWhenDelegateReturnsFalse() {
+        // Setup (connect)
+        test_connectionFlow()
+
+        // Set `shouldAutomaticallySendTypingStopEvent` to `false`
+        let delegate = MockDelegate()
+        delegate.shouldAutomaticallySendTypingStopEvent = false
+        webSocket.eventDelegate = delegate
+
+        // Simulate a user started typing
+        socketProvider.simulateMessageReceived(.typingStartEvent(userId: user.id))
+        
+        var nextEvent: Event?
+        _ = webSocket.subscribe { nextEvent = $0 }
+
+        // Wait for the timeout and expect no `typingStop` event.
+        time.run(numberOfSeconds: WebSocket.incomingTypingStartEventTimeout + 1)
+        AssertAsync.staysTrue(nextEvent != .typingStop(user, nil, .typingStop))
+    }
 }
 
-private extension Dictionary {
+private class MockDelegate: WebSocketEventDelegate {
+    var shouldPublishEvent: Bool = true
+    var shouldAutomaticallySendTypingStopEvent: Bool = true
     
-    /// Helper function to create a `health.check` event JSON with the given `userId` and `connectId`.
-    static func healthCheckEvent(userId: String, connectionId: String) -> [String: Any] {
-        [
-            "created_at" : "2020-05-02T13:21:03.862065063Z",
-            "me" : [
-                "id" : userId,
-                "banned" : false,
-                "unread_channels" : 0,
-                "mutes" : [],
-                "last_active" : "2020-05-02T13:21:03.849219Z",
-                "created_at" : "2019-06-05T15:01:52.847807Z",
-                "devices" : [],
-                "invisible" : false,
-                "unread_count" : 0,
-                "channel_mutes" : [],
-                "image" : "https://i.imgur.com/EgEPqWZ.jpg",
-                "updated_at" : "2020-05-02T13:21:03.855468Z",
-                "role" : "user",
-                "total_unread_count" : 0,
-                "online" : true,
-                "name" : "steep-moon-9",
-                "test" : 1
-            ],
-            "type" : "health.check",
-            "connection_id" : connectionId
-        ]
-    }
+    func shouldPublishEvent(_ event: Event) -> Bool { shouldPublishEvent }
+    func shouldAutomaticallySendTypingStopEvent(for user: User) -> Bool { shouldAutomaticallySendTypingStopEvent }
 }

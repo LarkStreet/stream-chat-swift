@@ -24,12 +24,7 @@ public final class Client: Uploader {
     """)
     public static var config: Config = .init(apiKey: "_deprecated") {
         didSet {
-            guard backingSharedClient == nil else {
-                ClientLogger.logAssertionFailure(
-                    "`Client.shared` instance was already used. It's not possible to change its configuration."
-                )
-                return
-            }
+            guard shouldSetSharedConfig(for: config) else { return }
             
             configForSharedClient = config
         }
@@ -58,16 +53,34 @@ public final class Client: Uploader {
     /// A backing variable for `Client.shared`. We need this to have finer control over its creation.
     private static var backingSharedClient: Client?
     
+    private static func shouldSetSharedConfig(for config: Config) -> Bool {
+        if backingSharedClient != nil {
+            let errorMessage = "`Client.shared` instance was already used. "
+                + "It's not possible to change its configuration.\n"
+                + "You're either setting `Client.config` or calling `Client.configureShared` multiple times. "
+                + "You should only do this once.\n"
+                + "Break on \(#file):\(#line) to catch this issue."
+            
+            if configForSharedClient != config {
+                // Error
+                ClientLogger.logAssertionFailure(errorMessage)
+            } else {
+                // Warning
+                ClientLogger.log("❌", level: .error, errorMessage)
+            }
+            
+            return false
+        }
+        
+        return true
+    }
+    
     /// Configures the shared instance of `Client`.
     ///
     /// - Parameter configuration: The configuration object with details of how the shared instance should be set up.
     public static func configureShared(_ config: Config) {
-        guard backingSharedClient == nil else {
-            ClientLogger.logAssertionFailure(
-                "`Client.shared` instance was already used. It's not possible to change its configuration."
-            )
-            return
-        }
+        guard shouldSetSharedConfig(for: config) else { return }
+        
         configForSharedClient = config
     }
     
@@ -102,8 +115,16 @@ public final class Client: Uploader {
     // MARK: WebSocket
     
     /// A web socket client.
-    lazy var webSocket = WebSocket(StarscreamWebSocketProvider(request: URLRequest(url: URL(string: "http://example.com")!),
-                                                               callbackQueue: .main), options: [])
+    private(set) lazy var webSocket: WebSocket = {
+        let request = (try? makeWebSocketRequest(user: user, token: "")) ?? URLRequest(url: .placeholder)
+        let callbackQueue = DispatchQueue(label: "io.getstream.Chat.WebSocket", qos: .userInitiated)
+        let provider = defaultWebSocketProviderType.init(request: request, callbackQueue: callbackQueue)
+        let options = stayConnectedInBackground ? WebSocketOptions.stayConnectedInBackground : []
+        let logger = logOptions.logger(icon: "🦄", for: [.webSocketError, .webSocket, .webSocketInfo])
+        let webSocket = WebSocket(provider, options: options, logger: logger)
+        webSocket.eventDelegate = self
+        return webSocket
+    }()
     
     /// A default WebSocketProvider type.
     let defaultWebSocketProviderType: WebSocketProvider.Type
@@ -114,7 +135,7 @@ public final class Client: Uploader {
     var needsToRecoverConnection = false
     
     let defaultURLSessionConfiguration: URLSessionConfiguration
-    lazy var urlSession = setupURLSession()
+    lazy var urlSession = makeURLSession()
     
     lazy var urlSessionTaskDelegate = ClientURLSessionTaskDelegate() // swiftlint:disable:this weak_delegate
     let callbackQueue: DispatchQueue?
@@ -129,9 +150,14 @@ public final class Client: Uploader {
     
     var onUserUpdateObservers = [String: OnUpdate<User>]()
     
-    private(set) lazy var userAtomic = Atomic<User>(.unknown, callbackQueue: eventsHandlingQueue) { [unowned self] newUser, _ in
+    private(set) lazy var userAtomic = Atomic<User>(.anonymous, callbackQueue: eventsHandlingQueue) { [unowned self] newUser, _ in
         self.onUserUpdateObservers.values.forEach({ $0(newUser) })
     }
+    
+    #if DEBUG
+    /// Called when a new outgoing event is about to be sent. Meant to be used only for testing purposes.
+    var outgoingEventsTestLogger: ((EventType) -> Void)?
+    #endif
     
     // MARK: Unread Count Events
     
@@ -174,6 +200,9 @@ public final class Client: Uploader {
         
         self.defaultURLSessionConfiguration = defaultURLSessionConfiguration
         self.defaultWebSocketProviderType = defaultWebSocketProviderType
+        
+        // Init the WebSocket to register subscriptions when the Client is initiated.
+        _ = webSocket
         
         if !apiKey.isEmpty, logOptions.isEnabled {
             ClientLogger.log("💬", "", .info, "Stream Chat v.\(Environment.version)")

@@ -12,11 +12,14 @@ import UIKit
 final class WebSocket {
     /// The time interval to ping connection to keep it alive.
     static let pingTimeInterval: TimeInterval = 25
+
+    /// The maximum time the incoming `typingStart` event is valid before a `typingStop` event is emitted automatically.
+    static let incomingTypingStartEventTimeout: TimeInterval = 30
+
+    weak var eventDelegate: WebSocketEventDelegate?
     
-    /// A WebSocket connection callback.
-    private let onEvent: (Event) -> Void
     private var onEventObservers = [String: Client.OnEvent]()
-    private var provider: WebSocketProvider
+    private(set) var provider: WebSocketProvider
     private let options: WebSocketOptions
     private let logger: ClientLogger?
     private var consecutiveFailures: TimeInterval = 0
@@ -24,6 +27,11 @@ final class WebSocket {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     private(set) var connectionId: String?
     private(set) var eventError: ClientErrorResponse?
+    
+    var request: URLRequest {
+        get { provider.request }
+        set { provider.request = newValue }
+    }
     
     var connectionState: ConnectionState { connectionStateAtomic.get() }
     
@@ -41,20 +49,20 @@ final class WebSocket {
     
     private let Timer: Timer.Type
     
+    private var typingEventTimeoutTimerControls: [User: TimerControl] = [:]
+    
     /// Checks if the web socket is connected and `connectionId` is not nil.
     var isConnected: Bool { connectionId != nil && provider.isConnected }
     
     init(_ provider: WebSocketProvider,
          options: WebSocketOptions,
          logger: ClientLogger? = nil,
-         timerType: Timer.Type = DefaultTimer.self,
-         onEvent: @escaping (Event) -> Void = { _ in }) {
+         timerType: Timer.Type = DefaultTimer.self) {
         
-        self.provider = provider
         self.options = options
         self.logger = logger
-        self.onEvent = onEvent
         self.Timer = timerType
+        self.provider = provider
         self.provider.delegate = self
     }
     
@@ -70,7 +78,7 @@ final class WebSocket {
 
 extension WebSocket {
     
-    /// Connect to websocket.
+    /// Connect to web socket.
     /// - Note:
     ///     - Skip if the Internet is not available.
     ///     - Skip if it's already connected.
@@ -199,7 +207,7 @@ extension WebSocket {
         provider.callbackQueue.async { [weak self] in
             self?.onEventObservers[subscription.uuid] = handler
             
-            // Reply the last connectoin state.
+            // Reply the last connection state.
             if eventTypes.contains(.connectionChanged), let connectionState = self?.connectionState {
                 handler(.connectionChanged(connectionState))
             }
@@ -210,10 +218,24 @@ extension WebSocket {
     
     private func publishEvent(_ event: Event) {
         provider.callbackQueue.async { [weak self] in
-            self?.onEvent(event)
-            self?.onEventObservers.forEach({ $0.value(event) })
+            if self?.eventDelegate?.shouldPublishEvent(event) ?? true {
+                self?.onEventObservers.forEach { $0.value(event) }
+            }
         }
     }
+}
+
+protocol WebSocketEventDelegate: AnyObject {
+    /// Called after a new event is received.
+    /// - Parameter event: The incoming event.
+    /// - Returns: A boolean value indicating whether WebSocket should publish the event to subscribers.
+    func shouldPublishEvent(_ event: Event) -> Bool
+    
+    /// Called when an incoming `typingStart` event is received.
+    /// - Parameter user: The user causing the event.
+    /// - Returns: A boolean value indicating whether a `typingStop` event should be sent for this user automatically
+    ///   after the `incomingTypingStartEventTimeout` timeout.
+    func shouldAutomaticallySendTypingStopEvent(for user: User) -> Bool
 }
 
 // MARK: - Web Socket Delegate
@@ -230,27 +252,16 @@ extension WebSocket: WebSocketProviderDelegate {
             return
         }
         
-        switch event {
-        case let .healthCheck(user, connectionId):
+        if case let .healthCheck(user, connectionId) = event {
             logger?.log("🥰 Connected")
             self.connectionId = connectionId
             handshakeTimer.resume()
             connectionStateAtomic.set(.connected(UserConnection(user: user, connectionId: connectionId)))
             return
-            
-        case let .messageNew(message, _, _, _) where message.user.isMuted:
-            logger?.log("Skip a message (\(message.id)) from muted user (\(message.user.id)): \(message.textOrArgs)", level: .info)
-            return
-        case let .typingStart(user, _, _), let .typingStop(user, _, _):
-            if user.isMuted {
-                logger?.log("Skip typing events from muted user (\(user.id))", level: .info)
-                return
-            }
-        default:
-            break
         }
         
         if isConnected {
+            handleTypingEvent(event)
             publishEvent(event)
         }
     }
@@ -360,6 +371,27 @@ extension WebSocket: WebSocketProviderDelegate {
         
         return nil
     }
+    
+    private func handleTypingEvent(_ event: Event) {
+        switch event {
+        case .typingStop(let user, _, _):
+            typingEventTimeoutTimerControls[user]?.cancel()
+            typingEventTimeoutTimerControls[user] = nil
+            
+        case .typingStart(let user, _, _)
+            where eventDelegate?.shouldAutomaticallySendTypingStopEvent(for: user) ?? false:
+            
+            typingEventTimeoutTimerControls[user]?.cancel()
+            
+            typingEventTimeoutTimerControls[user] = Timer.schedule(
+                timeInterval: Self.incomingTypingStartEventTimeout,
+                queue: provider.callbackQueue
+            ) { [weak self] in
+                self?.publishEvent(.typingStop(user, event.cid, .typingStop))
+            }
+        default: break
+        }
+    }
 }
 
 struct WebSocketOptions: OptionSet {
@@ -374,6 +406,6 @@ struct WebSocketOptions: OptionSet {
 
 /// WebSocket Error
 private struct ErrorContainer: Decodable {
-    /// A server error was recieved.
+    /// A server error was received.
     let error: ClientErrorResponse
 }

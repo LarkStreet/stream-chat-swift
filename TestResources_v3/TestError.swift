@@ -1,9 +1,6 @@
 //
-//  TestErrors.swift
-//  StreamChatClient
-//
-//  Created by Vojta on 27/05/2020.
-//  Copyright © 2020 Stream.io Inc. All rights reserved.
+// TestError.swift
+// Copyright © 2020 Stream.io Inc. All rights reserved.
 //
 
 import Foundation
