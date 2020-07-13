@@ -68,7 +68,7 @@ public final class InternetConnection {
     }()
     
     /// Start observing the Internet connection state.
-    func startNotifier() {
+    public func startNotifier() {
         guard state == .unknown else {
             DispatchQueue.main.async {
                 try? self.reachability?.startNotifier()

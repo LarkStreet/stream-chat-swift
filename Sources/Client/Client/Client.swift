@@ -236,7 +236,7 @@ public final class Client: Uploader {
     /// - `.background` and `isConnected`
     ///   - `disconnectInBackground()`
     /// - Parameter appState: an application state.
-    func connect(appState: UIApplication.State = UIApplication.shared.applicationState,
+    public func connect(appState: UIApplication.State = UIApplication.shared.applicationState,
                  internetConnectionState: InternetConnection.State = InternetConnection.shared.state) {
         guard internetConnectionState == .available else {
             if internetConnectionState == .unavailable {

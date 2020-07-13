@@ -123,47 +123,7 @@ extension ChatViewController {
         return composerView
     }
     
-    func setupComposerView() {
-        guard composerView.superview == nil, let presenter = presenter else {
-            return
-        }
-        
-        composerView.attachmentButton.isHidden = composerAddFileContainerView == nil
-        composerView.addToSuperview(view, showAlsoSendToChannelButton: presenter.isThread)
-        
-        if let composerAddFileContainerView = composerAddFileContainerView {
-            composerAddFileContainerView.add(to: composerView)
-            
-            composerView.attachmentButton.rx.tap
-                .subscribe(onNext: { [weak self] in self?.showAddFileView() })
-                .disposed(by: disposeBag)
-        }
-        
-        let textViewEvents = composerView.textView.rx.text.skip(1).compactMap({ $0 }).share()
-        
-        // Dispatch commands from text view.
-        textViewEvents.subscribe(onNext: { [weak self] in self?.dispatchCommands(in: $0) }).disposed(by: disposeBag)
-        
-        // Send typing events.
-        if presenter.isTypingEventsEnabled {
-            textViewEvents
-                .filter({ !$0.isEmpty })
-                .flatMapLatest({ [weak self] _ in self?.presenter?.channel.rx.keystroke() ?? .empty() })
-                .subscribe()
-                .disposed(by: disposeBag)
-        }
-        
-        composerView.sendButton.rx.tap
-            .subscribe(onNext: { [weak self] in self?.send() })
-            .disposed(by: disposeBag)
-        
-        keyboard.notification
-            .filter { $0.isHidden }
-            .subscribe(onNext: { [weak self] _ in self?.showCommands(show: false) })
-            .disposed(by: disposeBag)
-    }
-    
-    private func dispatchCommands(in text: String) {
+    func dispatchCommands(in text: String) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         showCommandsIfNeeded(for: trimmedText)
         
@@ -331,7 +291,7 @@ extension ChatViewController {
         return visible
     }
     
-    private func showCommands(show: Bool = true) {
+    func showCommands(show: Bool = true) {
         composerCommandsContainerView.animate(show: show)
         composerView.textView.autocorrectionType = show ? .no : .default
         
@@ -423,7 +383,7 @@ extension ChatViewController {
         container.containerView.addArrangedSubview(view)
     }
     
-    private func showAddFileView() {
+    func showAddFileView() {
         guard attachmentButtonTapped == nil else {
             attachmentButtonTapped?()
             return
