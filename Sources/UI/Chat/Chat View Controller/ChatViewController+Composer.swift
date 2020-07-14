@@ -123,6 +123,46 @@ extension ChatViewController {
         return composerView
     }
     
+    func setupComposerView() {
+        guard composerView.superview == nil, let presenter = presenter else {
+            return
+        }
+        
+        composerView.attachmentButton.isHidden = composerAddFileContainerView == nil
+        composerView.addToSuperview(view, showAlsoSendToChannelButton: presenter.isThread)
+        
+        if let composerAddFileContainerView = composerAddFileContainerView {
+            composerAddFileContainerView.add(to: composerView)
+            
+            composerView.attachmentButton.rx.tap
+                .subscribe(onNext: { [weak self] in self?.showAddFileView() })
+                .disposed(by: disposeBag)
+        }
+        
+        let textViewEvents = composerView.textView.rx.text.skip(1).compactMap({ $0 }).share()
+        
+        // Dispatch commands from text view.
+        textViewEvents.subscribe(onNext: { [weak self] in self?.dispatchCommands(in: $0) }).disposed(by: disposeBag)
+        
+        // Send typing events.
+        if presenter.isTypingEventsEnabled {
+            textViewEvents
+                .filter({ !$0.isEmpty })
+                .flatMapLatest({ [weak self] _ in self?.presenter?.channel.rx.keystroke() ?? .empty() })
+                .subscribe()
+                .disposed(by: disposeBag)
+        }
+        
+        composerView.sendButton.rx.tap
+            .subscribe(onNext: { [weak self] in self?.send() })
+            .disposed(by: disposeBag)
+        
+        keyboard.notification
+            .filter { $0.isHidden }
+            .subscribe(onNext: { [weak self] _ in self?.showCommands(show: false) })
+            .disposed(by: disposeBag)
+    }
+    
     func dispatchCommands(in text: String) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         showCommandsIfNeeded(for: trimmedText)
@@ -136,39 +176,7 @@ extension ChatViewController {
     
     // MARK: Send Message
     
-    /// Send a message.
-    open func send() {
-        let text = composerView.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isMessageEditing = presenter?.editMessage != nil
-        
-        if findCommand(in: text) != nil || isMessageEditing {
-            view.endEditing(true)
-        }
-        
-        if isMessageEditing {
-            composerEditingContainerView.animate(show: false)
-        }
-        
-        // We don't want users to send the same message multiple times
-        // in case their internet is slow and message isn't sent immediately
-        composerView.sendButton.isEnabled = false
-        
-        presenter?.rx.send(text: text, showReplyInChannel: composerView.alsoSendToChannelButton.isSelected)
-            .subscribe(
-                onNext: { [weak self] messageResponse in
-                    if messageResponse.message.type == .error {
-                        self?.show(error: ClientError.errorMessage(messageResponse.message))
-                    }
-                },
-                onError: { [weak self] in
-                    self?.composerView.reset()
-                    self?.show(error: $0)
-                },
-                onCompleted: { [weak self] in self?.composerView.reset() })
-            .disposed(by: disposeBag)
-    }
-    
-    private func findCommand(in text: String) -> String? {
+    func findCommand(in text: String) -> String? {
         guard text.count > 1, text.hasPrefix("/") else {
             return nil
         }
