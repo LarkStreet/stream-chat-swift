@@ -13,8 +13,9 @@ final class StatusTableViewCell: UITableViewCell, Reusable {
     
     private let titleLabel: UILabel = {
         let label = UILabel(frame: .zero)
-        label.font = .chatXSmallBold
+        label.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         label.textColor = .chatGray
+        label.textAlignment = .center
         return label
     }()
     
@@ -47,13 +48,12 @@ final class StatusTableViewCell: UITableViewCell, Reusable {
     }
     
     func setup() {
-        let stackView = UIStackView(arrangedSubviews: [lineView1, titleLabel, lineView2])
+        let stackView = UIStackView(arrangedSubviews: [titleLabel])
         stackView.axis = .horizontal
         stackView.spacing = .messageStatusSpacing
         stackView.alignment = .center
         
         contentView.addSubview(stackView)
-        lineView1.snp.makeConstraints { $0.width.equalTo(lineView2) }
 
         stackView.snp.makeConstraints { make in
             make.edges.equalToSuperview().priority(999)
@@ -72,10 +72,8 @@ final class StatusTableViewCell: UITableViewCell, Reusable {
             setup()
         }
         
-        titleLabel.text = title.uppercased()
+        titleLabel.text = title
         titleLabel.textColor = textColor
-        lineView1.backgroundColor = textColor.withAlphaComponent(0.5)
-        lineView2.backgroundColor = lineView1.backgroundColor
         
         if let subtitle = subtitle {
             subtitleLabel.text = subtitle.uppercased()

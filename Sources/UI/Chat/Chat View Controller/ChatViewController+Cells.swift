@@ -72,23 +72,42 @@ extension ChatViewController {
             }
         }
         
-        var showNameAndAvatarIfNeeded = true
+        var showNameIfNeeded = true
+        var showAvatarIfNeeded = true
         var needsToShowAdditionalDate = false
         let nextRow = indexPath.row + 1
+        let previousRow = indexPath.row - 1
         
-        if nextRow < items.count, case .message(let nextMessage, _) = items[nextRow] {
+        if previousRow < items.count, previousRow > 0, case .message(let previousMessage, _) = items[previousRow] {
             if messageStyle.showTimeThreshold > 59 {
-                let timeLeft = nextMessage.created.timeIntervalSince1970 - message.created.timeIntervalSince1970
+                let timeLeft = previousMessage.created.timeIntervalSince1970 - previousMessage.created.timeIntervalSince1970
                 needsToShowAdditionalDate = timeLeft > messageStyle.showTimeThreshold
             }
             
             if needsToShowAdditionalDate, case .userNameAndDate = messageStyle.additionalDateStyle {
-                showNameAndAvatarIfNeeded = true
+                showNameIfNeeded = true
             } else {
-                showNameAndAvatarIfNeeded = nextMessage.user != message.user
+                showNameIfNeeded = previousMessage.user != message.user
             }
             
-            if !showNameAndAvatarIfNeeded {
+            if !showNameIfNeeded {
+                cell.bottomEdgeInsetConstraint?.update(offset: 0)
+            }
+        }
+        
+        if nextRow < items.count, case .message(let nextMessage, _) = items[nextRow] {
+            if messageStyle.showTimeThreshold > 59 {
+                let timeLeft = nextMessage.created.timeIntervalSince1970 - nextMessage.created.timeIntervalSince1970
+                needsToShowAdditionalDate = timeLeft > messageStyle.showTimeThreshold
+            }
+            
+            if needsToShowAdditionalDate, case .userNameAndDate = messageStyle.additionalDateStyle {
+                showAvatarIfNeeded = true
+            } else {
+                showAvatarIfNeeded = nextMessage.user != message.user
+            }
+            
+            if !showAvatarIfNeeded {
                 cell.bottomEdgeInsetConstraint?.update(offset: 0)
             }
         }
@@ -107,12 +126,12 @@ extension ChatViewController {
         
         cell.updateBackground()
         
-        if showNameAndAvatarIfNeeded {
+        if showNameIfNeeded {
             cell.update(name: message.user.name, date: message.created)
-            
-            if messageStyle.avatarViewStyle != nil {
-                updateMessageCellAvatarView(in: cell, message: message, messageStyle: messageStyle)
-            }
+        }
+        
+        if messageStyle.avatarViewStyle != nil && showAvatarIfNeeded {
+            updateMessageCellAvatarView(in: cell, message: message, messageStyle: messageStyle)
         }
         
         guard !message.isDeleted else {
@@ -143,7 +162,8 @@ extension ChatViewController {
         }
         
         // Show additional date, if needed.
-        if !showNameAndAvatarIfNeeded,
+        if !showNameIfNeeded,
+            !showAvatarIfNeeded,
             (cell.readUsersView?.isHidden ?? true),
             needsToShowAdditionalDate,
             case .messageAndDate = messageStyle.additionalDateStyle {

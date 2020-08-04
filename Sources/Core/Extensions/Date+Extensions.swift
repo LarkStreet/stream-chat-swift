@@ -24,6 +24,14 @@ extension Date {
 extension Date {
     /// A yesterday title for a status separartor.
     public static var yesterday = "Yesterday"
+    
+    public static let XUnitsAgo = NSLocalizedString("%d%@ ago", comment: "States how long ago event happen")
+    public static let YearUnit = NSLocalizedString("y", comment: "One character abbreviation of year")
+    public static let DayUnit = NSLocalizedString("d", comment: "One character abbreviation of day")
+    public static let HourUnit = NSLocalizedString("h", comment: "One character abbreviation of hour")
+    public static let MinuteUnit = NSLocalizedString("m", comment: "One character abbreviation of minute")
+    public static let Now = NSLocalizedString("Now", comment: "Indicates that it happened in the last moments")
+    
     /// A words separator for day and time.
     public static var wordsSeparator = ", "
     
@@ -60,6 +68,37 @@ extension Date {
     public func isLessThan(timeInterval: TimeInterval, with date: Date) -> Bool {
         return abs(timeIntervalSinceNow - date.timeIntervalSinceNow) < timeInterval
     }
+    
+    public var numberOfUnitsFromToday: String {
+        let timeInterval = abs(self.timeIntervalSinceNow)
+        let timeElapsed: Int
+        let unitString: String
+        
+        switch timeInterval {
+        case .year...:
+            timeElapsed = Int(timeInterval / .year)
+            unitString = Date.YearUnit
+            
+        // "days will begin at the 49th hour and continue until a year is hit
+        case (49 * .hour )...:
+            timeElapsed = Int(timeInterval / .day)
+            unitString = Date.DayUnit
+            
+        case .hour...:
+            timeElapsed = Int(timeInterval / .hour)
+            unitString = Date.HourUnit
+            
+        case .minute...:
+            timeElapsed = Int(timeInterval / .minute)
+            unitString = Date.MinuteUnit
+            
+        default:
+            return Date.Now.lowercased()
+        }
+        
+        return String(format: Date.XUnitsAgo, arguments: [timeElapsed, unitString])
+    }
+    
 }
 
 extension DateFormatter {
@@ -100,4 +139,16 @@ extension DateFormatter {
         formatter.dateFormat = "yyyy_MM_dd_HHmmss"
         return formatter
     }()
+}
+
+extension TimeInterval {
+    static let year: TimeInterval = 365 * .day
+    static let month: TimeInterval = 30 * .day
+    static let day: TimeInterval = 24 * .hour
+    static let hour: TimeInterval = 60 * .minute
+    static let minute: TimeInterval = 60
+    
+    func hasPassed(since: TimeInterval) -> Bool {
+        return Date().timeIntervalSinceReferenceDate - self > since
+    }
 }

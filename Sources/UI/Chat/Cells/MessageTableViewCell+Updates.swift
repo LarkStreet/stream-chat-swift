@@ -57,7 +57,7 @@ extension MessageTableViewCell {
             nameLabel.isHidden = true
         }
         
-        dateLabel.text = date.relative
+        dateLabel.text = date.numberOfUnitsFromToday
     }
     
     func update(replyCount: Int) {

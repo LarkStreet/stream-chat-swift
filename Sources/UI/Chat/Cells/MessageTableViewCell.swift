@@ -118,11 +118,11 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
     var readUsersBottomConstraint: Constraint?
     
     private(set) lazy var messageStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [messageContainerView,
+        let stackView = UIStackView(arrangedSubviews: [nameAndDateStackView,
+                                                       messageContainerView,
                                                        infoLabel,
                                                        replyCountButton,
-                                                       replyInChannelButton,
-                                                       nameAndDateStackView])
+                                                       replyInChannelButton])
         stackView.axis = .vertical
         stackView.spacing = style.spacing.vertical
         return stackView
@@ -262,6 +262,12 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
             } else {
                 make.left.equalToSuperview().offset(CGFloat.messageTextPaddingWithAvatar).priority(999)
                 make.right.equalToSuperview().offset(-style.marginWithAvatarOffset).priority(999)
+            }
+        }
+        
+        if style.alignment == .left {
+            nameAndDateStackView.snp.makeConstraints { make in
+                make.width.greaterThanOrEqualTo(messageContainerView.snp.width)
             }
         }
         
