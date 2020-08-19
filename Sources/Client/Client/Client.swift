@@ -246,7 +246,7 @@ public final class Client: Uploader {
             return
         }
         
-        if appState == .active {
+        if appState == .active && webSocket.connectionState != .connecting && webSocket.connectionState != .reconnecting {
             webSocket.connect()
         } else if appState == .background, webSocket.isConnected {
             webSocket.disconnectInBackground()
@@ -262,7 +262,7 @@ public final class Client: Uploader {
     }
     
     /// Disconnect the websocket and reset states.
-    func reset() {
+    public func reset() {
         if webSocket.connectionId != nil {
             needsToRecoverConnection = true
         }

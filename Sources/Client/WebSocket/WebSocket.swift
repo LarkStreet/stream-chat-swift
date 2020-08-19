@@ -86,18 +86,19 @@ extension WebSocket {
     func connect() {
         cancelBackgroundWork()
         
-        if isConnected || connectionState == .connecting || connectionState == .reconnecting {
-            if let logger = logger {
-                let reasons = [(isConnected ? " isConnected with connectionId = \(connectionId ?? "n/a")" : nil),
-                               (connectionState == .reconnecting ? " isReconnecting" : nil),
-                               (connectionState == .connecting ? "isConnecting" : nil),
-                               (provider.isConnected ? "\(provider).isConnected" : nil)]
-                
-                logger.log("SKIP connect: \(reasons.compactMap({ $0 }).joined(separator: ", "))")
-            }
-            
-            return
-        }
+        // Probably fix of reconnect issue
+//        if isConnected || connectionState == .connecting || connectionState == .reconnecting {
+//            if let logger = logger {
+//                let reasons = [(isConnected ? " isConnected with connectionId = \(connectionId ?? "n/a")" : nil),
+//                               (connectionState == .reconnecting ? " isReconnecting" : nil),
+//                               (connectionState == .connecting ? "isConnecting" : nil),
+//                               (provider.isConnected ? "\(provider).isConnected" : nil)]
+//
+//                logger.log("SKIP connect: \(reasons.compactMap({ $0 }).joined(separator: ", "))")
+//            }
+//
+//            return
+//        }
         
         if provider.isConnected {
             provider.disconnect()
