@@ -1,0 +1,8 @@
+ignore:
+  - "Tests_v3/"
+  - "**/*_Tests.swift"
+  - "**/*_Mock.swift"
+  - "**/*_Vendor.swift"
+  
+github_checks:
+    annotations: false

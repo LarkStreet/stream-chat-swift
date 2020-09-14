@@ -40,9 +40,10 @@ final class QueryEncodingTests: XCTestCase {
                                     sort: [.init("name", isAscending: true)],
                                     pagination: self.complexPagination(),
                                     messagesLimit: self.mediumPagination(),
+                                    membersLimit: 1,
                                     options: .presence) }
 
-        let expectedString = #"{"offset":10,"sort":[{"field":"name","direction":1}],"filter_conditions":{"id":42},"message_limit":10,"presence":true,"limit":10,"id_lt":"92","id_gt":"42"}"#
+        let expectedString = #"{"offset":10,"sort":[{"field":"name","direction":1}],"filter_conditions":{"id":42},"message_limit":10,"member_limit":1,"presence":true,"limit":10,"id_lt":"92","id_gt":"42"}"#
 
         AssertJSONEqual(Data(expectedString.utf8), try encode(query()))
     }
@@ -52,7 +53,17 @@ final class QueryEncodingTests: XCTestCase {
                                   query: "hello",
                                   pagination: self.mediumPagination()) }
 
-        let expectedString = #"{"limit":10,"query":"hello","offset":20,"filter_conditions":{"$and":[{"members":{"$in":["john"]}},{"id":{"$autocomplete":"ro"}}]}}"#
+        let expectedString = #"{"limit":10,"query":"hello","offset":20,"filter_conditions":{"$and":[{"members":{"$in":["john"]}},{"id":{"$autocomplete":"ro"}}]},"message_filter_conditions":{}}"#
+
+        AssertJSONEqual(Data(expectedString.utf8), try encode(query()))
+    }
+    
+    func testSearchQueryMessageFilterEncoding() {
+        let query = { SearchQuery(filter: self.mediumFilter,
+                                  messageFilter: .exists("attachments", true),
+                                  pagination: self.mediumPagination()) }
+
+        let expectedString = #"{"limit":10,"query":"","offset":20,"filter_conditions":{"$and":[{"members":{"$in":["john"]}},{"id":{"$autocomplete":"ro"}}]},"message_filter_conditions":{"attachments":{"$exists":true}}}"#
 
         AssertJSONEqual(Data(expectedString.utf8), try encode(query()))
     }

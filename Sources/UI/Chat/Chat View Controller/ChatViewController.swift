@@ -48,6 +48,9 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
     /// A default preferred order to display the emojis in the reaction view
     open var defaultPreferredEmojiOrder: [String] { ["👍", "❤️", "😂", "😲", "😔", "😠"] }
     
+    /// Whether to automatically parse mentions into the `message.mentionedUsers` property on send. Defaults to `true`.
+    open var parseMentionedUsersOnSend = true
+    
     /// A dispose bag for rx subscriptions.
     public let disposeBag = DisposeBag()
     /// A list of table view items, e.g. messages.
@@ -266,6 +269,30 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
     ///   - messageStyle: a message style.
     open func updateMessageCellAvatarView(in cell: MessageTableViewCell, message: Message, messageStyle: MessageViewStyle) {
         cell.avatarView.update(with: message.user.avatarURL, name: message.user.name)
+    }
+    
+    /// Handles a tap on the attachment.
+    /// - Parameters:
+    ///   - attachment: an attachment.
+    ///   - index: an index of the attachment in a list of message attachments.
+    ///   - attachments: a list of message attachments.
+    ///   - cell: a message cell with attachments.
+    ///   - message: a message with attachments.
+    open func tapOnAttachment(_ attachment: Attachment,
+                              at index: Int,
+                              in cell: MessageTableViewCell,
+                              message: Message) {
+        guard attachment.isImage else {
+            showWebView(url: attachment.url, title: attachment.title)
+            return
+        }
+        
+        let items: [MediaGalleryItem] = message.attachments.compactMap {
+            let logoImage = $0.type == .giphy ? UIImage.Logo.giphy : nil
+            return MediaGalleryItem(title: $0.title, url: $0.imageURL, logoImage: logoImage)
+        }
+        
+        showMediaGallery(with: items, selectedIndex: index)
     }
     
     /// Updates typing user avatar in the footer view.
@@ -494,7 +521,9 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
         // in case their internet is slow and message isn't sent immediately
         composerView.sendButton.isEnabled = false
         
-        presenter?.rx.send(text: text, showReplyInChannel: composerView.alsoSendToChannelButton.isSelected)
+        presenter?.rx.send(text: text,
+                           showReplyInChannel: composerView.alsoSendToChannelButton.isSelected,
+                           parseMentionedUsers: parseMentionedUsersOnSend)
             .subscribe(
                 onNext: { [weak self] messageResponse in
                     if messageResponse.message.type == .error {
@@ -614,4 +643,4 @@ extension ChatViewController {
     open func tableView(_ tableView: UITableView, shouldHighlightRowAt indexPath: IndexPath) -> Bool {
         false
     }
-} // swiftlint:disable:this file_length
+}

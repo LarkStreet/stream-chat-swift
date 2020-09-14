@@ -12,6 +12,9 @@ import Foundation
 public enum Endpoint {
     
     // MARK: Auth Endpoints
+
+    /// An endpoint without any side-effects. Used only to set up a TCP connection which can be later reused by other requests.
+    case heatUpTCPConnection
     
     /// Get a guest token.
     case guestToken(User)
@@ -51,6 +54,10 @@ public enum Endpoint {
     case hideChannel(Channel, User, _ clearHistory: Bool)
     /// Show a channel if it was hidden.
     case showChannel(Channel, User)
+    /// Mute a channel.
+    case muteChannel(Channel)
+    /// Unmute a channel.
+    case unmuteChannel(Channel)
     /// Send a message to a channel.
     case sendMessage(Message, Channel)
     /// Upload an image to a channel.
@@ -99,7 +106,7 @@ public enum Endpoint {
     case users(UsersQuery)
     /// Update a user.
     case updateUsers([User])
-    /// Mute a use.
+    /// Mute a user.
     case muteUser(User)
     /// Unmute a user.
     case unmuteUser(User)
@@ -109,6 +116,8 @@ public enum Endpoint {
     case unflagUser(User)
     /// Ban a user.
     case ban(UserBan)
+    /// Unban a user.
+    case unban(UserBan)
 }
 
 extension Endpoint {
@@ -116,8 +125,10 @@ extension Endpoint {
         switch self {
         case .search, .channels, .message, .replies, .users, .devices:
             return .get
-        case .removeDevice, .deleteChannel, .deleteMessage, .deleteReaction, .deleteImage, .deleteFile:
+        case .removeDevice, .deleteChannel, .deleteMessage, .deleteReaction, .deleteImage, .deleteFile, .unban:
             return .delete
+        case .heatUpTCPConnection:
+            return .options
         default:
             return .post
         }
@@ -125,6 +136,8 @@ extension Endpoint {
     
     var path: String {
         switch self {
+        case .heatUpTCPConnection:
+            return "connect"
         case .guestToken:
             return "guest"
         case .addDevice,
@@ -156,6 +169,10 @@ extension Endpoint {
             return path(to: channel, "show")
         case .hideChannel(let channel, _, _):
             return path(to: channel, "hide")
+        case .muteChannel:
+            return "moderation/mute/channel"
+        case .unmuteChannel:
+            return "moderation/unmute/channel"
         case .replies(let message, _):
             return path(to: message.id, "replies")
             
@@ -198,7 +215,7 @@ extension Endpoint {
         case .unflagUser,
              .unflagMessage:
             return "moderation/unflag"
-        case .ban:
+        case .ban, .unban:
             return "moderation/ban"
         case .inviteAnswer(let answer):
             return path(to: answer.channel)
@@ -213,6 +230,8 @@ extension Endpoint {
             return pagination
         case .deleteImage(let url, _), .deleteFile(let url, _):
             return ["url": url]
+        case .unban(let userBan):
+            return userBan
         default:
             return nil
         }
@@ -237,7 +256,8 @@ extension Endpoint {
     
     var body: Encodable? {
         switch self {
-        case .removeDevice,
+        case .heatUpTCPConnection,
+             .removeDevice,
              .search,
              .channels,
              .message,
@@ -249,7 +269,8 @@ extension Endpoint {
              .sendFile,
              .deleteImage,
              .deleteFile,
-             .users:
+             .users,
+             .unban:
             return nil
             
         case .markAllRead,
@@ -272,11 +293,14 @@ extension Endpoint {
         case .channel(let query):
             return query
             
+        case .hideChannel(_, let user, let clearHistory):
+            return HiddenChannelRequest(userId: user.id, clearHistory: clearHistory)
+            
         case .showChannel(_, let user):
             return ["user_id": user.id]
             
-        case .hideChannel(_, let user, let clearHistory):
-            return HiddenChannelRequest(userId: user.id, clearHistory: clearHistory)
+        case .muteChannel(let channel), .unmuteChannel(let channel):
+            return ["channel_cid": channel.cid]
             
         case .sendMessage(let message, _):
             return ["message": message]
@@ -347,9 +371,12 @@ extension Endpoint {
         case .channel(let query):
             return query.options.contains(.presence) || query.options.contains(.state)
         case .updateUsers,
-             .stopWatching:
+             .stopWatching,
+             .muteChannel,
+             .unmuteChannel:
             return true
-        case .guestToken,
+        case .heatUpTCPConnection,
+             .guestToken,
              .message,
              .markAllRead,
              .deleteChannel,
@@ -383,6 +410,7 @@ extension Endpoint {
              .flagMessage,
              .unflagMessage,
              .ban,
+             .unban,
              .translate:
             return false
         }
@@ -404,5 +432,6 @@ extension Endpoint {
         case get = "GET"
         case post = "POST"
         case delete = "DELETE"
+        case options = "OPTIONS"
     }
 }

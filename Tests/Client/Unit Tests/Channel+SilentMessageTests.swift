@@ -24,7 +24,7 @@ class Channel_SilentMessageTests: XCTestCase {
         
         let message = Message(text: "test", silent: true, user: .init(id: "test-sender"))
         
-        let newMessageEvent = Event.messageNew(message, 0, channel.cid, .messageNew)
+        let newMessageEvent = Event.messageNew(message, .noUnread, 0, channel.cid, .messageNew)
         
         assert(channel.unreadCount.mentionedMessages == 0)
         assert(channel.unreadCount.messages == 0)
@@ -41,7 +41,7 @@ class Channel_SilentMessageTests: XCTestCase {
         
         let message = Message(text: "test", silent: true, user: .init(id: "test-sender"), mentionedUsers: [User(id: "test-mention")])
         
-        let newMessageEvent = Event.messageNew(message, 0, channel.cid, .messageNew)
+        let newMessageEvent = Event.messageNew(message, .noUnread, 0, channel.cid, .messageNew)
         
         assert(channel.unreadCount.mentionedMessages == 0)
         assert(channel.unreadCount.messages == 0)
@@ -246,7 +246,7 @@ class Channel_SilentMessageTests: XCTestCase {
         "membership": {
             "created_at": "2020-05-12T12:16:01.132467Z",
             "updated_at": "2020-05-12T12:16:01.132467Z",
-            "role": "channel_member",
+            "role": "member",
             "user": {
                 "banned": false,
                 "online": true,

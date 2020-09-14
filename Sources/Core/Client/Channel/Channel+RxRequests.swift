@@ -17,7 +17,6 @@ extension Channel: ReactiveCompatible {}
 public extension Reactive where Base == Channel {
     
     /// Create a channel.
-    /// - Parameter completion: a completion block with `ChannelResponse`.
     @discardableResult
     func create() -> Observable<ChannelResponse> {
         Client.shared.rx.create(channel: base)
@@ -63,8 +62,18 @@ public extension Reactive where Base == Channel {
     /// Removes the hidden status for a channel.
     /// - Parameters:
     ///   - user: the current user.
-    func show(_ completion: @escaping Client.Completion<EmptyData> = { _ in }) -> Observable<EmptyData> {
+    func show() -> Observable<EmptyData> {
         Client.shared.rx.show(channel: base)
+    }
+    
+    /// Mutes a channel.
+    func mute() -> Observable<MutedChannelResponse> {
+        Client.shared.rx.mute(channel: base)
+    }
+    
+    /// Unmutes a channel.
+    func unmute() -> Observable<EmptyData> {
+        Client.shared.rx.unmute(channel: base)
     }
     
     /// Update channel data.
@@ -86,9 +95,11 @@ public extension Reactive where Base == Channel {
     // MARK: - Message
     
     /// Send a new message or update with a given `message.id`.
-    /// - Parameter message: a message.
-    func send(message: Message) -> Observable<MessageResponse> {
-        Client.shared.rx.send(message: message, to: base)
+    /// - Parameters:
+    ///   - message: a message.
+    ///   - parseMentionedUsers: whether to automatically parse mentions into the `message.mentionedUsers` property. Defaults to `true`.
+    func send(message: Message, parseMentionedUsers: Bool = true) -> Observable<MessageResponse> {
+        Client.shared.rx.send(message: message, to: base, parseMentionedUsers: parseMentionedUsers)
     }
     
     /// Send a message action for a given ephemeral message.
@@ -180,6 +191,12 @@ public extension Reactive where Base == Channel {
     ///   - timeoutInMinutes: for a timeout in minutes.
     func ban(user: User, timeoutInMinutes: Int? = nil, reason: String? = nil) -> Observable<EmptyData> {
         Client.shared.rx.ban(user: user, in: base, timeoutInMinutes: timeoutInMinutes, reason: reason)
+    }
+    
+    /// Unban a user.
+    /// - Parameter user: a user.
+    func unban(user: User) -> Observable<EmptyData> {
+        Client.shared.rx.unban(user: user, in: base)
     }
     
     // MARK: - Invite Requests

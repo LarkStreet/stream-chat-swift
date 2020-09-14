@@ -79,6 +79,20 @@ public extension Channel {
         Client.shared.show(channel: self, completion)
     }
     
+    /// Mutes a channel.
+    /// - Parameter completion: an empty completion block.
+    @discardableResult
+    func mute(_ completion: @escaping Client.Completion<MutedChannelResponse> = { _ in }) -> Cancellable {
+        Client.shared.mute(channel: self, completion)
+    }
+    
+    /// Unmutes a channel.
+    /// - Parameter completion: an empty completion block.
+    @discardableResult
+    func unmute(_ completion: @escaping Client.Completion<EmptyData> = { _ in }) -> Cancellable {
+        Client.shared.unmute(channel: self, completion)
+    }
+    
     /// Update channel data.
     /// - Parameters:
     ///   - name: a channel name.
@@ -283,6 +297,15 @@ public extension Channel {
              reason: String? = nil,
              _ completion: @escaping Client.Completion<EmptyData> = { _ in }) -> Cancellable {
         Client.shared.ban(user: user, in: self, timeoutInMinutes: timeoutInMinutes, reason: reason, completion)
+    }
+    
+    /// Unban a user.
+    /// - Parameters:
+    ///   - user: a user.
+    ///   - completion: an empty completion block.
+    @discardableResult
+    func unban(user: User, _ completion: @escaping Client.Completion<EmptyData> = { _ in }) -> Cancellable {
+        Client.shared.unban(user: user, in: self, completion)
     }
     
     // MARK: - Invite Requests

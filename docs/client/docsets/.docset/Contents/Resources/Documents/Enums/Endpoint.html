@@ -8,6 +8,9 @@
     <script src="../js/jquery.min.js" defer></script>
     <script src="../js/jazzy.js" defer></script>
     
+    <script src="../js/lunr.min.js" defer></script>
+    <script src="../js/typeahead.jquery.js" defer></script>
+    <script src="../js/jazzy.search.js" defer></script>
   </head>
   <body>
     <a name="//apple_ref/swift/Enum/Endpoint" class="dashAnchor"></a>
@@ -16,6 +19,11 @@
       <div class="content-wrapper">
         <p><a href="../index.html"> Docs</a> (100% documented)</p>
         <p class="header-right"><a href="https://github.com/GetStream/stream-chat-swift"><img src="../img/gh.png"/>View on GitHub</a></p>
+        <p class="header-right">
+          <form role="search" action="../search.json">
+            <input type="text" placeholder="Search documentation" data-typeahead>
+          </form>
+        </p>
       </div>
     </header>
     <div class="content-wrapper">
@@ -78,6 +86,12 @@
               </li>
               <li class="nav-group-task">
                 <a href="../Classes/SubscriptionBag.html">SubscriptionBag</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/User.html">User</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/User/Role.html">– Role</a>
               </li>
             </ul>
           </li>
@@ -363,6 +377,12 @@
                 <a href="../Structs.html#/s:16StreamChatClient16MessagesResponseV">MessagesResponse</a>
               </li>
               <li class="nav-group-task">
+                <a href="../Structs/MutedChannel.html">MutedChannel</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Structs/MutedChannelResponse.html">MutedChannelResponse</a>
+              </li>
+              <li class="nav-group-task">
                 <a href="../Structs/MutedUser.html">MutedUser</a>
               </li>
               <li class="nav-group-task">
@@ -388,12 +408,6 @@
               </li>
               <li class="nav-group-task">
                 <a href="../Structs/UpdatedUsersResponse.html">UpdatedUsersResponse</a>
-              </li>
-              <li class="nav-group-task">
-                <a href="../Structs/User.html">User</a>
-              </li>
-              <li class="nav-group-task">
-                <a href="../Structs/User/Role.html">– Role</a>
               </li>
               <li class="nav-group-task">
                 <a href="../Structs.html#/s:16StreamChatClient7UserBanV">UserBan</a>
@@ -440,6 +454,7 @@
             <h1>Endpoint</h1>
               <div class="declaration">
                 <div class="language">
+                  
                   <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">enum</span> <span class="kt">Endpoint</span></code></pre>
 
                 </div>
@@ -462,9 +477,36 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO10guestTokenyAcA4UserVcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO19heatUpTCPConnectionyA2CmF"></a>
+                    <a name="//apple_ref/swift/Element/heatUpTCPConnection" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO19heatUpTCPConnectionyA2CmF">heatUpTCPConnection</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>An endpoint without any side-effects. Used only to set up a TCP connection which can be later reused by other requests.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="n">heatUpTCPConnection</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16StreamChatClient8EndpointO10guestTokenyAcA4UserCcACmF"></a>
                     <a name="//apple_ref/swift/Element/guestToken(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO10guestTokenyAcA4UserVcACmF">guestToken(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO10guestTokenyAcA4UserCcACmF">guestToken(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -479,7 +521,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">guestToken</span><span class="p">(</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">guestToken</span><span class="p">(</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -502,9 +544,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO9addDeviceyACSS_AA4UserVtcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO9addDeviceyACSS_AA4UserCtcACmF"></a>
                     <a name="//apple_ref/swift/Element/addDevice(deviceId:_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO9addDeviceyACSS_AA4UserVtcACmF">addDevice(deviceId:<wbr>_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO9addDeviceyACSS_AA4UserCtcACmF">addDevice(deviceId:<wbr>_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -519,7 +561,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">addDevice</span><span class="p">(</span><span class="nv">deviceId</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">addDevice</span><span class="p">(</span><span class="nv">deviceId</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -529,9 +571,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO7devicesyAcA4UserVcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO7devicesyAcA4UserCcACmF"></a>
                     <a name="//apple_ref/swift/Element/devices(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO7devicesyAcA4UserVcACmF">devices(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO7devicesyAcA4UserCcACmF">devices(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -546,7 +588,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">devices</span><span class="p">(</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">devices</span><span class="p">(</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -556,9 +598,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO12removeDeviceyACSS_AA4UserVtcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO12removeDeviceyACSS_AA4UserCtcACmF"></a>
                     <a name="//apple_ref/swift/Element/removeDevice(deviceId:_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO12removeDeviceyACSS_AA4UserVtcACmF">removeDevice(deviceId:<wbr>_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO12removeDeviceyACSS_AA4UserCtcACmF">removeDevice(deviceId:<wbr>_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -573,7 +615,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">removeDevice</span><span class="p">(</span><span class="nv">deviceId</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">removeDevice</span><span class="p">(</span><span class="nv">deviceId</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -825,9 +867,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO11hideChannelyAcA0F0C_AA4UserVSbtcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO11hideChannelyAcA0F0C_AA4UserCSbtcACmF"></a>
                     <a name="//apple_ref/swift/Element/hideChannel(_:_:_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO11hideChannelyAcA0F0C_AA4UserVSbtcACmF">hideChannel(_:<wbr>_:<wbr>_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO11hideChannelyAcA0F0C_AA4UserCSbtcACmF">hideChannel(_:<wbr>_:<wbr>_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -842,7 +884,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">hideChannel</span><span class="p">(</span><span class="kt"><a href="../Classes/Channel.html">Channel</a></span><span class="p">,</span> <span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">,</span> <span class="nv">_</span><span class="p">:</span> <span class="kt">Bool</span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">hideChannel</span><span class="p">(</span><span class="kt"><a href="../Classes/Channel.html">Channel</a></span><span class="p">,</span> <span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">,</span> <span class="nv">_</span><span class="p">:</span> <span class="kt">Bool</span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -852,9 +894,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO11showChannelyAcA0F0C_AA4UserVtcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO11showChannelyAcA0F0C_AA4UserCtcACmF"></a>
                     <a name="//apple_ref/swift/Element/showChannel(_:_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO11showChannelyAcA0F0C_AA4UserVtcACmF">showChannel(_:<wbr>_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO11showChannelyAcA0F0C_AA4UserCtcACmF">showChannel(_:<wbr>_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -869,7 +911,61 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">showChannel</span><span class="p">(</span><span class="kt"><a href="../Classes/Channel.html">Channel</a></span><span class="p">,</span> <span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">showChannel</span><span class="p">(</span><span class="kt"><a href="../Classes/Channel.html">Channel</a></span><span class="p">,</span> <span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16StreamChatClient8EndpointO11muteChannelyAcA0F0CcACmF"></a>
+                    <a name="//apple_ref/swift/Element/muteChannel(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO11muteChannelyAcA0F0CcACmF">muteChannel(_:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Mute a channel.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">muteChannel</span><span class="p">(</span><span class="kt"><a href="../Classes/Channel.html">Channel</a></span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16StreamChatClient8EndpointO13unmuteChannelyAcA0F0CcACmF"></a>
+                    <a name="//apple_ref/swift/Element/unmuteChannel(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO13unmuteChannelyAcA0F0CcACmF">unmuteChannel(_:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Unmute a channel.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">unmuteChannel</span><span class="p">(</span><span class="kt"><a href="../Classes/Channel.html">Channel</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -1443,9 +1539,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO11updateUsersyACSayAA4UserVGcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO11updateUsersyACSayAA4UserCGcACmF"></a>
                     <a name="//apple_ref/swift/Element/updateUsers(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO11updateUsersyACSayAA4UserVGcACmF">updateUsers(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO11updateUsersyACSayAA4UserCGcACmF">updateUsers(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -1460,7 +1556,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">updateUsers</span><span class="p">([</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">])</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">updateUsers</span><span class="p">([</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">])</span></code></pre>
 
                         </div>
                       </div>
@@ -1470,9 +1566,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO8muteUseryAcA0F0VcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO8muteUseryAcA0F0CcACmF"></a>
                     <a name="//apple_ref/swift/Element/muteUser(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO8muteUseryAcA0F0VcACmF">muteUser(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO8muteUseryAcA0F0CcACmF">muteUser(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -1480,14 +1576,14 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Mute a use.</p>
+                        <p>Mute a user.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">muteUser</span><span class="p">(</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">muteUser</span><span class="p">(</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -1497,9 +1593,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO10unmuteUseryAcA0F0VcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO10unmuteUseryAcA0F0CcACmF"></a>
                     <a name="//apple_ref/swift/Element/unmuteUser(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO10unmuteUseryAcA0F0VcACmF">unmuteUser(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO10unmuteUseryAcA0F0CcACmF">unmuteUser(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -1514,7 +1610,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">unmuteUser</span><span class="p">(</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">unmuteUser</span><span class="p">(</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -1524,9 +1620,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO8flagUseryAcA0F0VcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO8flagUseryAcA0F0CcACmF"></a>
                     <a name="//apple_ref/swift/Element/flagUser(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO8flagUseryAcA0F0VcACmF">flagUser(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO8flagUseryAcA0F0CcACmF">flagUser(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -1541,7 +1637,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">flagUser</span><span class="p">(</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">flagUser</span><span class="p">(</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -1551,9 +1647,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:16StreamChatClient8EndpointO10unflagUseryAcA0F0VcACmF"></a>
+                    <a name="/s:16StreamChatClient8EndpointO10unflagUseryAcA0F0CcACmF"></a>
                     <a name="//apple_ref/swift/Element/unflagUser(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:16StreamChatClient8EndpointO10unflagUseryAcA0F0VcACmF">unflagUser(_:<wbr>)</a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO10unflagUseryAcA0F0CcACmF">unflagUser(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -1568,7 +1664,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">unflagUser</span><span class="p">(</span><span class="kt"><a href="../Structs/User.html">User</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">unflagUser</span><span class="p">(</span><span class="kt"><a href="../Classes/User.html">User</a></span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>
@@ -1602,13 +1698,40 @@
                     </section>
                   </div>
                 </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:16StreamChatClient8EndpointO5unbanyAcA7UserBanVcACmF"></a>
+                    <a name="//apple_ref/swift/Element/unban(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:16StreamChatClient8EndpointO5unbanyAcA7UserBanVcACmF">unban(_:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Unban a user.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">unban</span><span class="p">(</span><span class="kt"><a href="../Structs.html#/s:16StreamChatClient7UserBanV">UserBan</a></span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
               </ul>
             </div>
           </section>
         </section>
         <section id="footer">
-          <p>&copy; 2020 <a class="link" href="getstream.io" target="_blank" rel="external">GetStream.io</a>. All rights reserved. (Last updated: 2020-06-24)</p>
-          <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.13.2</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
+          <p>&copy; 2020 <a class="link" href="getstream.io" target="_blank" rel="external">GetStream.io</a>. All rights reserved. (Last updated: 2020-09-04)</p>
+          <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.13.5</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
         </section>
       </article>
     </div>

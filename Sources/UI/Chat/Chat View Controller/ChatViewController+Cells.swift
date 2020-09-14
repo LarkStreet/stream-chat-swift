@@ -141,16 +141,22 @@ extension ChatViewController {
         // Show attachments.
         if !message.attachments.isEmpty {
             message.attachments.enumerated().forEach { index, attachment in
-                cell.addAttachment(attachment,
-                                   at: index,
-                                   from: message,
-                                   tap: { [weak self] in self?.show(attachment: $0, at: $1, from: $2) },
-                                   actionTap: { [weak self] in self?.sendActionForEphemeralMessage($0, button: $1) },
-                                   reload: { [weak self] in
-                                    if let self = self {
-                                        self.tableView.reloadRows(at: [indexPath], with: .none)
-                                    }
-                })
+                cell.addAttachment(
+                    attachment,
+                    at: index,
+                    from: message,
+                    tap: { [weak self, weak cell] in
+                        if let self = self, let cell = cell {
+                            self.tapOnAttachment($0, at: $1, in: cell, message: $2)
+                        }
+                    },
+                    actionTap: { [weak self] in self?.sendActionForEphemeralMessage($0, button: $1) },
+                    reload: { [weak self] in
+                        if let self = self {
+                            self.tableView.reloadRows(at: [indexPath], with: .none)
+                        }
+                    }
+                )
             }
             
             cell.isContinueMessage = !message.isEphemeral
@@ -204,7 +210,7 @@ extension ChatViewController {
             .subscribe(onNext: { [weak self, weak cell] gesture in
                 if let self = self, let cell = cell {
                     if let tapGesture = gesture as? UITapGestureRecognizer {
-                        self.handleMessageCellTap(from: cell, in: message, tapGesture: tapGesture)
+                        self.tapOnMessageCell(from: cell, in: message, tapGesture: tapGesture)
                     } else {
                         self.showActions(from: cell, for: message, locationInView: gesture.location(in: cell))
                     }
@@ -213,9 +219,9 @@ extension ChatViewController {
             .disposed(by: cell.disposeBag)
     }
     
-    func handleMessageCellTap(from cell: MessageTableViewCell,
-                              in message: Message,
-                              tapGesture: UITapGestureRecognizer) {
+    func tapOnMessageCell(from cell: MessageTableViewCell,
+                          in message: Message,
+                          tapGesture: UITapGestureRecognizer) {
         if let messageTextEnrichment = cell.messageTextEnrichment, !messageTextEnrichment.detectedURLs.isEmpty {
             for detectedURL in messageTextEnrichment.detectedURLs {
                 if tapGesture.didTapAttributedTextInLabel(label: cell.messageLabel, inRange: detectedURL.range) {
