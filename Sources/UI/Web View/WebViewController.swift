@@ -9,6 +9,7 @@
 import UIKit
 import WebKit
 import SnapKit
+import SafariServices
 
 /// A siple web view controller with `WKWebView` and navigation buttons in the navigation bar.
 open class WebViewController: UIViewController, WKNavigationDelegate {
@@ -155,10 +156,9 @@ extension UIViewController {
             return
         }
         
-        let webViewController = WebViewController()
-        webViewController.url = url
+        let webViewController = SFSafariViewController(url: url)
         webViewController.title = title
-        present(WebViewNavigationController(with: webViewController), animated: animated)
+        present(webViewController, animated: animated)
     }
 }
 
