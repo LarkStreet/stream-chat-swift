@@ -79,6 +79,22 @@ extension MessageDatabaseSession {
     }
 }
 
+protocol ChannelDatabaseSession {
+    /// Creates a new `ChannelDTO` object in the database with the given `payload` and `query`.
+    @discardableResult
+    func saveChannel<ExtraData: ExtraDataTypes>(payload: ChannelPayload<ExtraData>, query: ChannelListQuery?) throws -> ChannelDTO
+    
+    /// Creates a new `ChannelDTO` object in the database with the given `payload` and `query`.
+    @discardableResult
+    func saveChannel<ExtraData: ExtraDataTypes>(
+        payload: ChannelDetailPayload<ExtraData>,
+        query: ChannelListQuery?
+    ) throws -> ChannelDTO
+    
+    /// Fetches `ChannelDTO` with the given `cid` from the database.
+    func channel(cid: ChannelId) -> ChannelDTO?
+}
+
 protocol ChannelReadDatabaseSession {
     /// Creates a new `ChannelReadDTO` object in the database. Throws an error if the ChannelRead fails to be created.
     @discardableResult
@@ -95,27 +111,21 @@ protocol ChannelReadDatabaseSession {
     func loadChannelReads(for userId: UserId) -> [ChannelReadDTO]
 }
 
-protocol DatabaseSession: UserDatabaseSession, CurrentUserDatabaseSession, MessageDatabaseSession, ChannelReadDatabaseSession {
-    // MARK: - Member
-    
+protocol MemberDatabaseSession {
+    /// Creates a new `MemberDTO` object in the database with the given `payload` in the channel with `channelId`.
     @discardableResult
     func saveMember<ExtraData: UserExtraData>(payload: MemberPayload<ExtraData>, channelId: ChannelId) throws -> MemberDTO
     
-    func loadMember<ExtraData: UserExtraData>(id: UserId, channelId: ChannelId) -> MemberModel<ExtraData>?
-    
-    // MARK: - Channel
-    
-    @discardableResult
-    func saveChannel<ExtraData: ExtraDataTypes>(payload: ChannelPayload<ExtraData>, query: ChannelListQuery?) throws -> ChannelDTO
-    
-    @discardableResult
-    func saveChannel<ExtraData: ExtraDataTypes>(
-        payload: ChannelDetailPayload<ExtraData>,
-        query: ChannelListQuery?
-    ) throws -> ChannelDTO
-    
-    func loadChannel<ExtraData: ExtraDataTypes>(cid: ChannelId) -> ChannelModel<ExtraData>?
+    /// Fetchtes `MemberDTO`entity for the given `userId` and `cid`.
+    func member(userId: UserId, cid: ChannelId) -> MemberDTO?
 }
+
+protocol DatabaseSession: UserDatabaseSession,
+    CurrentUserDatabaseSession,
+    MessageDatabaseSession,
+    ChannelReadDatabaseSession,
+    ChannelDatabaseSession,
+    MemberDatabaseSession {}
 
 extension DatabaseSession {
     @discardableResult

@@ -8,13 +8,13 @@ import XCTest
 
 class ChatClient_Tests: StressTestCase {
     var userId: UserId!
-    private var testEnv: TestEnvironment<DefaultDataTypes>!
+    private var testEnv: TestEnvironment<DefaultExtraData>!
     
     // A helper providing ChatClientConfic with in-memory DB option
     var inMemoryStorageConfig: ChatClientConfig {
         var config = ChatClientConfig()
         config.isLocalStorageEnabled = false
-        config.baseURL = BaseURL(urlString: .unique)
+        config.baseURL = BaseURL(urlString: .unique)!
         return config
     }
     
@@ -31,9 +31,9 @@ class ChatClient_Tests: StressTestCase {
     }
     
     var workerBuilders: [WorkerBuilder] = [
-        MessageSender<DefaultDataTypes>.init,
-        NewChannelQueryUpdater<DefaultDataTypes>.init,
-        ChannelWatchStateUpdater<DefaultDataTypes>.init
+        MessageSender<DefaultExtraData>.init,
+        NewChannelQueryUpdater<DefaultExtraData>.init,
+        ChannelWatchStateUpdater<DefaultExtraData>.init
     ]
     
     // MARK: - Database stack tests
@@ -43,14 +43,17 @@ class ChatClient_Tests: StressTestCase {
         let storeFolderURL = URL.newTemporaryDirectoryURL()
         var config = ChatClientConfig()
         config.isLocalStorageEnabled = true
+        config.shouldFlushLocalStorageOnStart = true
         config.localStorageFolderURL = storeFolderURL
         
         var usedDatabaseKind: DatabaseContainer.Kind?
+        var shouldFlushDBOnStart: Bool?
         
         // Create env object with custom database builder
         var env = ChatClient.Environment()
-        env.databaseContainerBuilder = { kind in
+        env.databaseContainerBuilder = { kind, shouldFlushOnStart in
             usedDatabaseKind = kind
+            shouldFlushDBOnStart = shouldFlushOnStart
             return DatabaseContainerMock()
         }
         
@@ -60,6 +63,7 @@ class ChatClient_Tests: StressTestCase {
             usedDatabaseKind,
             .onDisk(databaseFileURL: storeFolderURL.appendingPathComponent(config.apiKey.apiKeyString))
         )
+        XCTAssertEqual(shouldFlushDBOnStart, config.shouldFlushLocalStorageOnStart)
     }
     
     func test_clientDatabaseStackInitialization_whenLocalStorageDisabled() {
@@ -71,7 +75,7 @@ class ChatClient_Tests: StressTestCase {
         
         // Create env object with custom database builder
         var env = ChatClient.Environment()
-        env.databaseContainerBuilder = { kind in
+        env.databaseContainerBuilder = { kind, _ in
             usedDatabaseKind = kind
             return DatabaseContainerMock()
         }
@@ -95,11 +99,12 @@ class ChatClient_Tests: StressTestCase {
         
         // Prepare a queue with errors the db builder should return. We want to return an error only the first time
         // when we expect the DB is created with the local DB option and we want it to fail.
-        var errorsToReturn = Queue(TestError())
-        
+        var errorsToReturn = Queue<Error>()
+        errorsToReturn.push(TestError())
+
         // Create env object and store all `kinds it's called with.
         var env = ChatClient.Environment()
-        env.databaseContainerBuilder = { kind in
+        env.databaseContainerBuilder = { kind, _ in
             usedDatabaseKinds.append(kind)
             // Return error for the first time
             if let error = errorsToReturn.pop() {
@@ -137,7 +142,7 @@ class ChatClient_Tests: StressTestCase {
         XCTAssertNotNil(webSocket?.init_eventDecoder)
         
         // EventDataProcessorMiddleware must be always first
-        XCTAssert(webSocket?.init_eventNotificationCenter.middlewares[0] is EventDataProcessorMiddleware<DefaultDataTypes>)
+        XCTAssert(webSocket?.init_eventNotificationCenter.middlewares[0] is EventDataProcessorMiddleware<DefaultExtraData>)
         
         // Assert Client sets itself as delegate for the request encoder
         XCTAssert(webSocket?.init_requestEncoder.connectionDetailsProviderDelegate === client)
@@ -156,11 +161,18 @@ class ChatClient_Tests: StressTestCase {
         let middlewares = try XCTUnwrap(testEnv.webSocketClient?.init_eventNotificationCenter.middlewares)
         
         // Assert `EventDataProcessorMiddleware` exists
-        XCTAssert(middlewares.contains(where: { $0 is EventDataProcessorMiddleware<DefaultDataTypes> }))
+        XCTAssert(middlewares.contains(where: { $0 is EventDataProcessorMiddleware<DefaultExtraData> }))
         // Assert `TypingStartCleanupMiddleware` exists
-        XCTAssert(middlewares.contains(where: { $0 is TypingStartCleanupMiddleware<DefaultDataTypes> }))
+        let typingStartCleanupMiddlewareIndex = middlewares.firstIndex { $0 is TypingStartCleanupMiddleware<DefaultExtraData> }
+        XCTAssertNotNil(typingStartCleanupMiddlewareIndex)
         // Assert `ChannelReadUpdaterMiddleware` exists
-        XCTAssert(middlewares.contains(where: { $0 is ChannelReadUpdaterMiddleware<DefaultDataTypes> }))
+        XCTAssert(middlewares.contains(where: { $0 is ChannelReadUpdaterMiddleware<DefaultExtraData> }))
+        // Assert `ChannelMemberTypingStateUpdaterMiddleware` exists
+        let typingStateUpdaterMiddlewareIndex = middlewares
+            .firstIndex { $0 is ChannelMemberTypingStateUpdaterMiddleware<DefaultExtraData> }
+        XCTAssertNotNil(typingStateUpdaterMiddlewareIndex)
+        // Assert `ChannelMemberTypingStateUpdaterMiddleware` goes after `TypingStartCleanupMiddleware`
+        XCTAssertTrue(typingStateUpdaterMiddlewareIndex! > typingStartCleanupMiddlewareIndex!)
     }
     
     func test_connectionStatus_isExposed() {
@@ -270,14 +282,14 @@ class ChatClient_Tests: StressTestCase {
     func test_productionClientIsInitalizedWithAllMandatoryBackgroundWorkers() {
         // Create a new Client with production configuration
         let config = ChatClientConfig(apiKey: .init(.unique))
-        let client = Client<DefaultDataTypes>(config: config)
+        let client = _ChatClient<DefaultExtraData>(config: config)
         
         // Check all the mandatory background workers are initialized
-        XCTAssert(client.backgroundWorkers.contains { $0 is MessageSender<DefaultDataTypes> })
-        XCTAssert(client.backgroundWorkers.contains { $0 is NewChannelQueryUpdater<DefaultDataTypes> })
-        XCTAssert(client.backgroundWorkers.contains { $0 is ChannelWatchStateUpdater<DefaultDataTypes> })
-        XCTAssert(client.backgroundWorkers.contains { $0 is MessageEditor<DefaultDataTypes> })
-        XCTAssert(client.backgroundWorkers.contains { $0 is MissingEventsPublisher<DefaultDataTypes> })
+        XCTAssert(client.backgroundWorkers.contains { $0 is MessageSender<DefaultExtraData> })
+        XCTAssert(client.backgroundWorkers.contains { $0 is NewChannelQueryUpdater<DefaultExtraData> })
+        XCTAssert(client.backgroundWorkers.contains { $0 is ChannelWatchStateUpdater<DefaultExtraData> })
+        XCTAssert(client.backgroundWorkers.contains { $0 is MessageEditor<DefaultExtraData> })
+        XCTAssert(client.backgroundWorkers.contains { $0 is MissingEventsPublisher<DefaultExtraData> })
     }
     
     func test_backgroundWorkersAreInitialized() {
@@ -300,7 +312,7 @@ class ChatClient_Tests: StressTestCase {
         }
         
         // Create a Client instance and check the TestWorker is initialized properly
-        let client = Client(
+        let client = _ChatClient(
             config: config,
             workerBuilders: [TestWorker.init],
             environment: testEnv.environment
@@ -325,14 +337,14 @@ class ChatClient_Tests: StressTestCase {
     func test_settingUser_resetsBackgroundWorkers() {
         // TestWorker to be used for checking if workers are re-created
         class TestWorker: Worker {
-            let id: UUID = UUID()
+            let id = UUID()
         }
         
         // Custom workerBuilders for ChatClient, including only TestWorker
         let workerBuilders: [WorkerBuilder] = [TestWorker.init]
         
         // Create ChatClient
-        let client = Client(
+        let client = _ChatClient(
             config: inMemoryStorageConfig,
             workerBuilders: workerBuilders,
             environment: testEnv.environment
@@ -379,7 +391,7 @@ private class TestEnvironment<ExtraData: ExtraDataTypes> {
     
     @Atomic var eventDecoder: EventDecoder<ExtraData>?
     
-    lazy var environment: Client<ExtraData>.Environment = { [unowned self] in
+    lazy var environment: _ChatClient<ExtraData>.Environment = { [unowned self] in
         .init(
             apiClientBuilder: {
                 self.apiClient = APIClientMock(sessionConfiguration: $0, requestEncoder: $1, requestDecoder: $2)
@@ -397,7 +409,7 @@ private class TestEnvironment<ExtraData: ExtraDataTypes> {
                 return self.webSocketClient!
             },
             databaseContainerBuilder: {
-                self.databaseContainer = try! DatabaseContainerMock(kind: $0)
+                self.databaseContainer = try! DatabaseContainerMock(kind: $0, shouldFlushOnStart: $1)
                 return self.databaseContainer!
             },
             requestEncoderBuilder: {
@@ -443,10 +455,6 @@ extension ChatClient_Tests {
 }
 
 private struct Queue<Element> {
-    init(_ elements: Element...) {
-        storage = elements
-    }
-    
     @Atomic private var storage = [Element]()
     mutating func push(_ element: Element) {
         storage.append(element)
@@ -526,7 +534,7 @@ extension WebSocketClientMock {
             connectEndpoint: .init(path: "", method: .get, queryItems: nil, requiresConnectionId: false, body: nil),
             sessionConfiguration: .default,
             requestEncoder: DefaultRequestEncoder(baseURL: .unique(), apiKey: .init(.unique)),
-            eventDecoder: EventDecoder<DefaultDataTypes>(),
+            eventDecoder: EventDecoder<DefaultExtraData>(),
             eventNotificationCenter: .init(),
             internetConnection: InternetConnection()
         )

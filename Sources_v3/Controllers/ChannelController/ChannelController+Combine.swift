@@ -6,19 +6,19 @@ import Combine
 import UIKit
 
 @available(iOS 13, *)
-extension ChannelControllerGeneric {
+extension _ChatChannelController {
     /// A publisher emitting a new value every time the state of the controller changes.
-    public var statePublisher: AnyPublisher<Controller.State, Never> {
+    public var statePublisher: AnyPublisher<DataController.State, Never> {
         basePublishers.state.keepAlive(self)
     }
     
     /// A publisher emitting a new value every time the channel changes.
-    public var channelChangePublisher: AnyPublisher<EntityChange<ChannelModel<ExtraData>>, Never> {
+    public var channelChangePublisher: AnyPublisher<EntityChange<_ChatChannel<ExtraData>>, Never> {
         basePublishers.channelChange.keepAlive(self)
     }
     
     /// A publisher emitting a new value every time the list of the messages matching the query changes.
-    public var messagesChangesPublisher: AnyPublisher<[ListChange<MessageModel<ExtraData>>], Never> {
+    public var messagesChangesPublisher: AnyPublisher<[ListChange<_ChatMessage<ExtraData>>], Never> {
         basePublishers.messagesChanges.keepAlive(self)
     }
     
@@ -27,9 +27,9 @@ extension ChannelControllerGeneric {
         basePublishers.memberEvent.keepAlive(self)
     }
     
-    /// A publisher emitting a new value every time typing event received.
-    public var typingEventPublisher: AnyPublisher<TypingEvent, Never> {
-        basePublishers.typingEvent.keepAlive(self)
+    /// A publisher emitting a new value every time typing members change.
+    public var typingMembersPublisher: AnyPublisher<Set<_ChatChannelMember<ExtraData.User>>, Never> {
+        basePublishers.typingMembers.keepAlive(self)
     }
 
     /// An internal backing object for all publicly available Combine publishers. We use it to simplify the way we expose
@@ -37,62 +37,60 @@ extension ChannelControllerGeneric {
     /// and expose the published values by mapping them to a read-only `AnyPublisher` type.
     class BasePublishers {
         /// The wrapper controller
-        unowned let controller: ChannelControllerGeneric
+        unowned let controller: _ChatChannelController
         
         /// A backing subject for `statePublisher`.
-        let state: CurrentValueSubject<Controller.State, Never>
+        let state: CurrentValueSubject<DataController.State, Never>
         
         /// A backing subject for `channelChangePublisher`.
-        let channelChange: PassthroughSubject<EntityChange<ChannelModel<ExtraData>>, Never> = .init()
+        let channelChange: PassthroughSubject<EntityChange<_ChatChannel<ExtraData>>, Never> = .init()
         
         /// A backing subject for `messagesChangesPublisher`.
-        let messagesChanges: PassthroughSubject<[ListChange<MessageModel<ExtraData>>], Never> = .init()
+        let messagesChanges: PassthroughSubject<[ListChange<_ChatMessage<ExtraData>>], Never> = .init()
         
         /// A backing subject for `memberEventPublisher`.
         let memberEvent: PassthroughSubject<MemberEvent, Never> = .init()
         
-        /// A backing subject for `typingEventPublisher`.
-        let typingEvent: PassthroughSubject<TypingEvent, Never> = .init()
+        /// A backing subject for `typingMembersPublisher`.
+        let typingMembers: PassthroughSubject<Set<_ChatChannelMember<ExtraData.User>>, Never> = .init()
                 
-        init(controller: ChannelControllerGeneric<ExtraData>) {
+        init(controller: _ChatChannelController<ExtraData>) {
             self.controller = controller
             state = .init(controller.state)
             
             controller.multicastDelegate.additionalDelegates.append(AnyChannelControllerDelegate(self))
-            
-            if controller.state == .inactive {
-                // Start updating and load the current data
-                controller.startUpdating()
-            }
         }
     }
 }
 
 @available(iOS 13, *)
-extension ChannelControllerGeneric.BasePublishers: ChannelControllerDelegateGeneric {
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+extension _ChatChannelController.BasePublishers: _ChatChannelControllerDelegate {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state.send(state)
     }
 
     func channelController(
-        _ channelController: ChannelControllerGeneric<ExtraData>,
-        didUpdateChannel channel: EntityChange<ChannelModel<ExtraData>>
+        _ channelController: _ChatChannelController<ExtraData>,
+        didUpdateChannel channel: EntityChange<_ChatChannel<ExtraData>>
     ) {
         channelChange.send(channel)
     }
 
     func channelController(
-        _ channelController: ChannelControllerGeneric<ExtraData>,
-        didUpdateMessages changes: [ListChange<MessageModel<ExtraData>>]
+        _ channelController: _ChatChannelController<ExtraData>,
+        didUpdateMessages changes: [ListChange<_ChatMessage<ExtraData>>]
     ) {
         messagesChanges.send(changes)
     }
 
-    func channelController(_ channelController: ChannelControllerGeneric<ExtraData>, didReceiveMemberEvent event: MemberEvent) {
+    func channelController(_ channelController: _ChatChannelController<ExtraData>, didReceiveMemberEvent event: MemberEvent) {
         memberEvent.send(event)
     }
-
-    func channelController(_ channelController: ChannelControllerGeneric<ExtraData>, didReceiveTypingEvent event: TypingEvent) {
-        typingEvent.send(event)
+    
+    func channelController(
+        _ channelController: _ChatChannelController<ExtraData>,
+        didChangeTypingMembers typingMembers: Set<_ChatChannelMember<ExtraData.User>>
+    ) {
+        self.typingMembers.send(typingMembers)
     }
 }

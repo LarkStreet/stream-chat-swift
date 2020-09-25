@@ -25,16 +25,10 @@ class ChannelController_Combine_Tests: iOS13TestCase {
         super.tearDown()
     }
     
-    func test_startUpdatingIsCalled_whenPublisherIsAccessed() {
-        assert(channelController.startUpdating_called == false)
-        _ = channelController.statePublisher
-        XCTAssertTrue(channelController.startUpdating_called)
-    }
-    
     func test_statePublisher() {
         // Setup Recording publishers
-        var recording = Record<Controller.State, Never>.Recording()
-        
+        var recording = Record<DataController.State, Never>.Recording()
+                
         // Setup the chain
         channelController
             .statePublisher
@@ -45,15 +39,14 @@ class ChannelController_Combine_Tests: iOS13TestCase {
         weak var controller: ChannelControllerMock? = channelController
         channelController = nil
         
-        controller?.delegateCallback { $0.controller(controller!, didChangeState: .localDataFetched) }
         controller?.delegateCallback { $0.controller(controller!, didChangeState: .remoteDataFetched) }
         
-        XCTAssertEqual(recording.output, [.inactive, .localDataFetched, .remoteDataFetched])
+        XCTAssertEqual(recording.output, [.localDataFetched, .remoteDataFetched])
     }
 
     func test_channelChangePublisher() {
         // Setup Recording publishers
-        var recording = Record<EntityChange<Channel>, Never>.Recording()
+        var recording = Record<EntityChange<ChatChannel>, Never>.Recording()
         
         // Setup the chain
         channelController
@@ -65,7 +58,7 @@ class ChannelController_Combine_Tests: iOS13TestCase {
         weak var controller: ChannelControllerMock? = channelController
         channelController = nil
 
-        let newChannel: Channel = .init(cid: .unique, extraData: .defaultValue)
+        let newChannel: ChatChannel = .init(cid: .unique, extraData: .defaultValue)
         controller?.channel_simulated = newChannel
         controller?.delegateCallback {
             $0.channelController(controller!, didUpdateChannel: .create(newChannel))
@@ -76,7 +69,7 @@ class ChannelController_Combine_Tests: iOS13TestCase {
     
     func test_messagesChangesPublisher() {
         // Setup Recording publishers
-        var recording = Record<[ListChange<MessageModel<DefaultDataTypes>>], Never>.Recording()
+        var recording = Record<[ListChange<_ChatMessage<DefaultExtraData>>], Never>.Recording()
         
         // Setup the chain
         channelController
@@ -88,7 +81,7 @@ class ChannelController_Combine_Tests: iOS13TestCase {
         weak var controller: ChannelControllerMock? = channelController
         channelController = nil
 
-        let newMessage: MessageModel = .unique
+        let newMessage: _ChatMessage = .unique
         controller?.messages_simulated = [newMessage]
         controller?.delegateCallback {
             $0.channelController(controller!, didUpdateMessages: [.insert(newMessage, index: .init())])
@@ -119,13 +112,13 @@ class ChannelController_Combine_Tests: iOS13TestCase {
         XCTAssertEqual(recording.output as! [TestMemberEvent], [memberEvent])
     }
     
-    func test_typingEventPublisher() {
+    func test_typingMembersPublisher() {
         // Setup Recording publishers
-        var recording = Record<TypingEvent, Never>.Recording()
+        var recording = Record<Set<ChatChannelMember>, Never>.Recording()
         
         // Setup the chain
         channelController
-            .typingEventPublisher
+            .typingMembersPublisher
             .sink(receiveValue: { recording.receive($0) })
             .store(in: &cancellables)
         
@@ -133,11 +126,27 @@ class ChannelController_Combine_Tests: iOS13TestCase {
         weak var controller: ChannelControllerMock? = channelController
         channelController = nil
 
-        let typingEvent: TypingEvent = .unique
+        let typingMember = ChatChannelMember(
+            id: .unique,
+            isOnline: true,
+            isBanned: false,
+            userRole: .user,
+            userCreatedAt: .unique,
+            userUpdatedAt: .unique,
+            lastActiveAt: .unique,
+            extraData: .defaultValue,
+            memberRole: .member,
+            memberCreatedAt: .unique,
+            memberUpdatedAt: .unique,
+            isInvited: false,
+            inviteAcceptedAt: nil,
+            inviteRejectedAt: nil
+        )
+        
         controller?.delegateCallback {
-            $0.channelController(controller!, didReceiveTypingEvent: typingEvent)
+            $0.channelController(controller!, didChangeTypingMembers: [typingMember])
         }
         
-        XCTAssertEqual(recording.output, [typingEvent])
+        XCTAssertEqual(recording.output, [[typingMember]])
     }
 }

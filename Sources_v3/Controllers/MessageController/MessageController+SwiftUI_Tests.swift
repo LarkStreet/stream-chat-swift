@@ -14,12 +14,6 @@ class MessageController_SwiftUI_Tests: iOS13TestCase {
         messageController = MessageControllerMock()
     }
     
-    func test_startUpdatingIsCalled_whenObservableObjectCreated() {
-        assert(messageController.startUpdating_called == false)
-        _ = messageController.observableObject
-        XCTAssertTrue(messageController.startUpdating_called)
-    }
-    
     func test_controllerInitialValuesAreLoaded() {
         messageController.state_simulated = .localDataFetched
         messageController.message_simulated = .unique
@@ -34,7 +28,7 @@ class MessageController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = messageController.observableObject
         
         // Simulate message change
-        let newMessage: Message = .unique
+        let newMessage: ChatMessage = .unique
         messageController.message_simulated = newMessage
         messageController.delegateCallback {
             $0.messageController(
@@ -49,7 +43,7 @@ class MessageController_SwiftUI_Tests: iOS13TestCase {
     func test_observableObject_reactsToDelegateStateChangesCallback() {
         let observableObject = messageController.observableObject
         // Simulate state change
-        let newState: Controller.State = .remoteDataFetchFailed(ClientError(with: TestError()))
+        let newState: DataController.State = .remoteDataFetchFailed(ClientError(with: TestError()))
         messageController.state_simulated = newState
         messageController.delegateCallback {
             $0.controller(
@@ -62,16 +56,16 @@ class MessageController_SwiftUI_Tests: iOS13TestCase {
     }
 }
 
-class MessageControllerMock: MessageController {
-    @Atomic var startUpdating_called = false
+class MessageControllerMock: ChatMessageController {
+    @Atomic var synchronize_called = false
     
-    var message_simulated: Message?
-    override var message: Message? {
+    var message_simulated: ChatMessage?
+    override var message: ChatMessage? {
         message_simulated ?? super.message
     }
 
-    var state_simulated: Controller.State?
-    override var state: Controller.State {
+    var state_simulated: DataController.State?
+    override var state: DataController.State {
         get { state_simulated ?? super.state }
         set { super.state = newValue }
     }
@@ -80,7 +74,7 @@ class MessageControllerMock: MessageController {
         super.init(client: .mock, cid: .unique, messageId: .unique)
     }
 
-    override func startUpdating(_ completion: ((Error?) -> Void)? = nil) {
-        startUpdating_called = true
+    override func synchronize(_ completion: ((Error?) -> Void)? = nil) {
+        synchronize_called = true
     }
 }

@@ -13,45 +13,59 @@ import UIKit
 /// events by conforming to `ChannelControllerDelegate`.
 ///
 @available(iOS 13, *)
-final class CombineSimpleChatViewController: UITableViewController {
+final class CombineSimpleChatViewController: UITableViewController, UITextViewDelegate {
     // MARK: - Properties
     
     ///
     /// # channelController
     ///
-    ///  The property below holds the `ChannelController` object.  It is used to make calls to the Stream Chat API and to listen to the events. After it is set,
-    ///  we need to start observing `ChannelController` event.
-    ///  While using Combine we should subscribe to `Publishers` events.
-    var channelController: ChannelController! {
+    ///
+    ///  The property below holds the `ChannelController` object.  It is used to make calls to the Stream Chat API and to listen to the events.
+    ///  After it is set, we are subscribing to `Publishers` from `ChannelController.BasePublisher` to receive updates.
+    ///  `Publishers` functionality is identical to methods of `ChannelControllerDelegate`.
+    ///  Also we need to call `channelController.synchronize()` to update local data with remote one.
+    ///
+    var channelController: ChatChannelController! {
         didSet {
+            channelController.synchronize()
             subscribeToCombinePublishers()
         }
     }
     
     // MARK: - Combine
 
+    ///
+    /// # cancellables
+    ///
+    ///  Holds the cancellable objects created from subscribing to the combine publishers inside `channelController`.
+    ///
     private lazy var cancellables: Set<AnyCancellable> = []
     
     ///
     /// # subscribeToCombinePublishers
     ///
     /// Here we bind `channelControllers` publishers so we can observe the changes.
+    ///
     private func subscribeToCombinePublishers() {
+        ///
         /// `ChannelController` will not trigger the `channelChangePublisher` on the initial channel set so
         /// we can` prepend` our `channelChangePublisher` sequence with the initial channel manually.
+        ///
         let initialChannel = Just(channelController.channel)
             .compactMap { $0 }
-            .map { EntityChange<Channel>.update($0) }
+            .map { EntityChange<ChatChannel>.update($0) }
         
+        ///
         /// This subscription updates the view controller's `title` and its `navigationItem.prompt` to display the count of channel
-        /// members and the count of online members. When the channel is deleted, this view controller is dismissed.
+        /// members and the count of online members or typing members if any. When the channel is deleted, this view controller is dismissed.
+        ///
         let updatedChannel = channelController
             .channelChangePublisher
             /// Update UI for initial channel.
             .prepend(initialChannel)
             /// Dismiss VC and break the sequence if channel got deleted.
             /// Map `EntityChange` to `Channel` and continue executing sequence if it is `update` change.
-            .compactMap { [weak self] change -> Channel? in
+            .compactMap { [weak self] change -> ChatChannel? in
                 switch change {
                 case .create:
                     return nil
@@ -71,33 +85,56 @@ final class CombineSimpleChatViewController: UITableViewController {
             .store(in: &cancellables)
         
         updatedChannel
-            .map { "\($0.members.count) members, \($0.members.filter(\.isOnline).count) online" }
+            .map { createTypingMemberString(for: $0) ?? createMemberInfoString(for: $0) }
             .assign(to: \.navigationItem.prompt, on: self)
             .store(in: &cancellables)
         
-        /// This subscription applies message changes to tableView using custom `Combine` operator.
+        ///
+        /// `messagesChangesPublisher` will send updates related to `messages` changes.
+        /// This subscription will update `tableView` with received changes.
+        ///
         channelController
             .messagesChangesPublisher
+            .receive(on: RunLoop.main)
             /// Apply changes to tableView.
-            .receive(on: RunLoop.main)
-            .sink { [weak self] in self?.tableView.applyListChanges(changes: $0) }
+            .sink { [weak self] changes in
+                let tableView = self?.tableView
+                
+                tableView?.beginUpdates()
+                
+                for change in changes {
+                    switch change {
+                    case let .insert(_, index: index):
+                        tableView?.insertRows(at: [index], with: .automatic)
+                    case let .move(_, fromIndex: fromIndex, toIndex: toIndex):
+                        tableView?.moveRow(at: fromIndex, to: toIndex)
+                    case let .update(_, index: index):
+                        tableView?.reloadRows(at: [index], with: .automatic)
+                    case let .remove(_, index: index):
+                        tableView?.deleteRows(at: [index], with: .automatic)
+                    }
+                }
+                
+                tableView?.endUpdates()
+            }
             .store(in: &cancellables)
         
-        /// The subscription  below receives a `TypingEvent` and updates the view controller's `navigationItem.prompt` to show that an user is currently typing.
+        ///
+        /// This subscription updates UI with typing members after receiving changes from `typingMembersPublisher`.
+        ///
         channelController
-            .typingEventPublisher
-            /// Map user with the typing event.
-            .map { [weak self] in (self?.channelController.dataStore.user(id: $0.userId), $0) }
-            /// Skip if user was not fetched succesfully from DB.
-            .filter { $0.0 != nil }
-            /// Create or reset prompt depending on `isTyping` event type.
-            .map { $0.1.isTyping ? "\($0.0?.name ?? $0.1.userId) is typing..." : "" }
-            .receive(on: RunLoop.main)
-            /// Assign it to `navigationItem.prompt`.
-            .assign(to: \.navigationItem.prompt, on: self)
+            .typingMembersPublisher
+            .sink { [weak self] _ in
+                self?.title = self?.channelController.channel.flatMap { $0.extraData.name ?? $0.cid.description }
+                self?.navigationItem.prompt = self?.channelController.channel.flatMap {
+                    createTypingMemberString(for: $0) ?? createMemberInfoString(for: $0)
+                }
+            }
             .store(in: &cancellables)
         
-        /// This dummy subscription prints received member events.
+        ///
+        /// This dummy subscription prints received member events from `memberEventPublisher`.
+        ///
         channelController
             .memberEventPublisher
             .sink { event in
@@ -105,7 +142,14 @@ final class CombineSimpleChatViewController: UITableViewController {
             }
             .store(in: &cancellables)
         
-        /// This dummy subscription prints controllers state updates.
+        ///
+        /// `statePublisher` will send changes related to `State` of `ChannelController`,
+        /// You can use it for presenting some loading indicator.
+        /// While using `Combine` publishers, the initial `state` of the contraller will be `.localDataFetched`
+        /// (or `localDataFetchFailed` in case of some internal error with DB, it should be very rare case).
+        /// It means that if there is some local data stored in DB related to this controller, it will be available from the start. After calling `channelController.synchronize()`
+        /// the controller will try to update local data with remote one and change it's state to `.remoteDataFetched` (or `.remoteDataFetchFailed` in case of failed API request).
+        ///
         channelController
             .statePublisher
             .sink { (state) in
@@ -144,11 +188,11 @@ final class CombineSimpleChatViewController: UITableViewController {
         
         switch message.type {
         case .deleted:
-            cell = cellWithAuthor(nil, messageText: "❌ the message was deleted")
+            cell = messageCellWithAuthor(nil, messageText: "❌ the message was deleted")
         case .error:
-            cell = cellWithAuthor(nil, messageText: "⚠️ something wrong happened")
+            cell = messageCellWithAuthor(nil, messageText: "⚠️ something wrong happened")
         default:
-            cell = cellWithAuthor(message.author.name ?? message.author.id, messageText: message.text)
+            cell = messageCellWithAuthor(message.author.name ?? message.author.id, messageText: message.text)
         }
         
         cell.backgroundColor = message.localState == nil ? .white : .lightGray
@@ -301,13 +345,38 @@ final class CombineSimpleChatViewController: UITableViewController {
         present(alert, animated: true)
     }
     
-    //
+    // MARK: - UITextViewDelegate
+
+    ///
+    /// The methods below are part of the `UITextViewDelegate` protocol and will be called when some event happened in the  `ComposerView`'s `UITextView`  which will
+    /// cause some action done by the `channelController` object.
+    ///
+    
+    ///
+    /// # textViewDidChange
+    ///
+    /// The method below handles changes to the `ComposerView`'s `UITextView` by calling `channelController.keystroke()` to send typing events to the channel so
+    /// other users will know the current user is typing.
+    ///
+    func textViewDidChange(_ textView: UITextView) {
+        channelController.sendKeystrokeEvent()
+    }
+    
+    ///
+    /// # textViewDidChange
+    ///
+    /// The method below handles the end of `ComposerView`'s `UITextView` editing by calling `channelController.stopTyping()` to immediately stop the typing
+    /// events so other users will know the current user stopped typing.
+    ///
+    func textViewDidEndEditing(_ textView: UITextView) {
+        channelController.sendStopTypingEvent()
+    }
 
     // MARK: - UI code
 
-    //
-    // From here on, you'll see mostly UI code that's not related to the ChannelController usage.
-    //
+    ///
+    /// From here on, you'll see mostly UI code that's not related to the ChannelController usage.
+    ///
     var composerView = ComposerView.instantiateFromNib()!
     override var inputAccessoryView: UIView? {
         guard presentedViewController?.isBeingDismissed != false else {
@@ -316,6 +385,8 @@ final class CombineSimpleChatViewController: UITableViewController {
         
         composerView.layoutMargins = view.layoutMargins
         composerView.directionalLayoutMargins = systemMinimumLayoutMargins
+        composerView.textView.delegate = self
+        
         return composerView
     }
     
@@ -331,44 +402,6 @@ final class CombineSimpleChatViewController: UITableViewController {
         }))
 
         present(alert, animated: true)
-    }
-
-    func cellWithAuthor(_ author: String?, messageText: String) -> UITableViewCell {
-        let cell: UITableViewCell!
-        if let _cell = tableView.dequeueReusableCell(withIdentifier: "MessageCell") {
-            cell = _cell
-        } else {
-            cell = UITableViewCell(style: .default, reuseIdentifier: "MessageCell")
-        }
-        
-        cell.textLabel?.numberOfLines = 0
-        cell.transform = CGAffineTransform(scaleX: 1, y: -1)
-        
-        if let author = author {
-            let font = cell.textLabel?.font ?? UIFont.systemFont(ofSize: UIFont.systemFontSize)
-            let boldFont = UIFont(
-                descriptor: font.fontDescriptor.withSymbolicTraits([.traitBold]) ?? font.fontDescriptor,
-                size: font.pointSize
-            )
-            
-            let attributedString = NSMutableAttributedString()
-            attributedString.append(
-                .init(
-                    string: "\(author) ",
-                    attributes: [
-                        NSAttributedString.Key.font: boldFont,
-                        NSAttributedString.Key.foregroundColor: UIColor.forUsername(author)
-                    ]
-                )
-            )
-            attributedString.append(.init(string: messageText))
-            
-            cell.textLabel?.attributedText = attributedString
-        } else {
-            cell?.textLabel?.text = messageText
-        }
-        
-        return cell
     }
     
     // MARK: - UIViewController

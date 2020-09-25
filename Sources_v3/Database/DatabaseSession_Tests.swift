@@ -31,15 +31,15 @@ class DatabaseSession_Tests: StressTestCase {
         }
         
         // Try to load the saved channel from DB
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         AssertAsync.willBeEqual(loadedChannel?.cid, channelId)
         
         // Try to load a saved channel owner from DB
         if let userId = channelPayload.channel.createdBy?.id {
-            var loadedUser: UserModel<DefaultDataTypes.User>? {
+            var loadedUser: _ChatUser<DefaultExtraData.User>? {
                 database.viewContext.user(id: userId)?.asModel()
             }
             
@@ -48,8 +48,8 @@ class DatabaseSession_Tests: StressTestCase {
         
         // Try to load the saved member from DB
         if let member = channelPayload.channel.members?.first {
-            var loadedMember: UserModel<DefaultDataTypes.User>? {
-                database.viewContext.loadMember(id: member.user.id, channelId: channelId)
+            var loadedMember: _ChatUser<DefaultExtraData.User>? {
+                database.viewContext.member(userId: member.user.id, cid: channelId)?.asModel()
             }
             
             AssertAsync.willBeEqual(loadedMember?.id, member.user.id)
@@ -61,7 +61,7 @@ class DatabaseSession_Tests: StressTestCase {
         let channelId: ChannelId = .unique
         let messageId: MessageId = .unique
         
-        let channelPayload: ChannelDetailPayload<DefaultDataTypes> = dummyPayload(with: channelId).channel
+        let channelPayload: ChannelDetailPayload<DefaultExtraData> = dummyPayload(with: channelId).channel
         
         let userPayload: UserPayload<NameAndImageExtraData> = .init(
             id: .unique,
@@ -78,7 +78,7 @@ class DatabaseSession_Tests: StressTestCase {
             )
         )
         
-        let messagePayload = MessagePayload<DefaultDataTypes>(
+        let messagePayload = MessagePayload<DefaultExtraData>(
             id: messageId,
             type: .regular,
             user: userPayload,
@@ -93,7 +93,7 @@ class DatabaseSession_Tests: StressTestCase {
             isSilent: false
         )
         
-        let eventPayload: EventPayload<DefaultDataTypes> = .init(
+        let eventPayload: EventPayload<DefaultExtraData> = .init(
             eventType: .messageNew,
             connectionId: .unique,
             cid: channelId,
@@ -118,13 +118,13 @@ class DatabaseSession_Tests: StressTestCase {
         }
         
         // Try to load the saved message from DB
-        var loadedMessage: MessageModel<DefaultDataTypes>? {
+        var loadedMessage: _ChatMessage<DefaultExtraData>? {
             database.viewContext.message(id: messageId)?.asModel()
         }
         AssertAsync.willBeTrue(loadedMessage != nil)
         
         // Verify the channel has the message
-        let loadedChannel: ChannelModel<DefaultDataTypes> = try XCTUnwrap(database.viewContext.loadChannel(cid: channelId))
+        let loadedChannel: _ChatChannel<DefaultExtraData> = try XCTUnwrap(database.viewContext.channel(cid: channelId)?.asModel())
         let message = try XCTUnwrap(loadedMessage)
         XCTAssert(loadedChannel.latestMessages.contains(message))
     }
@@ -153,7 +153,7 @@ class DatabaseSession_Tests: StressTestCase {
     }
     
     func test_saveEvent_unreadCountFromEventPayloadIsApplied() throws {
-        let eventPayload = EventPayload<DefaultDataTypes>(
+        let eventPayload = EventPayload<DefaultExtraData>(
             eventType: .messageNew,
             connectionId: .unique,
             cid: .unique,
@@ -191,7 +191,7 @@ class DatabaseSession_Tests: StressTestCase {
     
     func test_saveEvent_resetsLastReceivedEventDate_withEventCreatedAtValue() throws {
         // Create event payload with specific `createdAt` date
-        let eventPayload = EventPayload<DefaultDataTypes>(
+        let eventPayload = EventPayload<DefaultExtraData>(
             eventType: .messageNew,
             connectionId: .unique,
             cid: .unique,
@@ -218,7 +218,7 @@ class DatabaseSession_Tests: StressTestCase {
     
     func test_saveEvent_doesntResetLastReceivedEventDate_whenEventCreatedAtValueIsNil() throws {
         // Create event payload with missing `createdAt`
-        let eventPayload = EventPayload<DefaultDataTypes>(
+        let eventPayload = EventPayload<DefaultExtraData>(
             eventType: .messageNew,
             connectionId: .unique,
             cid: .unique,

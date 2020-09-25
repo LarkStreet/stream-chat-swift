@@ -5,40 +5,52 @@
 import CoreData
 import Foundation
 
-extension Client {
+extension _ChatClient {
     /// Creates a new `ChannelListController` with the provided channel query.
     ///
     /// - Parameter query: The query specify the filter and sorting of the channels the controller should fetch.
+    ///
     /// - Returns: A new instance of `ChannelController`.
     ///
-    public func channelListController(query: ChannelListQuery) -> ChannelListControllerGeneric<ExtraData> {
+    public func channelListController(query: ChannelListQuery) -> _ChatChannelListController<ExtraData> {
         .init(query: query, client: self)
     }
 }
 
-/// A convenience typealias for `ChannelListControllerGeneric` with `DefaultDataTypes`
-public typealias ChannelListController = ChannelListControllerGeneric<DefaultDataTypes>
+/// `_ChatChannelListController` is a controller class which allows observing a list of chat channels based on the provided query.
+///
+/// Learn more about `_ChatChannelListController` and its usage in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#channel-list).
+///
+/// - Note: `ChatChannelListController` is a typealias of `_ChatChannelListController` with default extra data. If you're using
+/// custom extra data, create your own typealias of `_ChatChannelListController`.
+///
+/// Learn more about using custom extra data in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#working-with-extra-data).
+///
+public typealias ChatChannelListController = _ChatChannelListController<DefaultExtraData>
 
-/// `ChannelListController` allows observing and mutating the list of channels specified by a channel query.
+/// `_ChatChannelListController` is a controller class which allows observing a list of chat channels based on the provided query.
 ///
-///  ... you can do this and that
+/// Learn more about `_ChatChannelListController` and its usage in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#channel-list).
 ///
-public class ChannelListControllerGeneric<ExtraData: ExtraDataTypes>: Controller, DelegateCallable, DataStoreProvider {
+/// - Note: `_ChatChannelListController` type is not meant to be used directly. If you're using default extra data, use
+/// `ChatChannelController` typealias instead. If you're using custom extra data, create your own typealias
+/// of `_ChatChannelListController`.
+///
+/// Learn more about using custom extra data in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#working-with-extra-data).
+///
+public class _ChatChannelListController<ExtraData: ExtraDataTypes>: DataController, DelegateCallable, DataStoreProvider {
     /// The query specifying and filtering the list of channels.
     public let query: ChannelListQuery
     
     /// The `ChatClient` instance this controller belongs to.
-    public let client: Client<ExtraData>
+    public let client: _ChatClient<ExtraData>
     
-    /// The channels matching the query. To observe updates in the list, set your class as a delegate of this controller.
-    public var channels: [ChannelModel<ExtraData>] {
-        guard state != .inactive else {
-            log.warning("Accessing `channels` before calling `startUpdating()` always results in an empty array.")
-            return []
-        }
-        
-        return channelListObserver.items
-    }
+    /// The channels matching the query of this controller.
+    ///
+    /// To observe changes of the channels, set your class as a delegate of this controller or use the provided
+    /// `Combine` publishers.
+    ///
+    public var channels: [_ChatChannel<ExtraData>] { channelListObserver.items }
     
     /// The worker used to fetch the remote data and communicate with servers.
     private lazy var worker: ChannelListUpdater<ExtraData> = self.environment
@@ -53,23 +65,34 @@ public class ChannelListControllerGeneric<ExtraData: ExtraDataTypes>: Controller
         didSet {
             stateMulticastDelegate.mainDelegate = multicastDelegate.mainDelegate
             stateMulticastDelegate.additionalDelegates = multicastDelegate.additionalDelegates
+            
+            // After setting delegate local changes will be fetched and observed.
+            startChannelListObserver()
         }
     }
     
     /// Used for observing the database for changes.
-    private(set) lazy var channelListObserver: ListDatabaseObserver<ChannelModel<ExtraData>, ChannelDTO> = {
+    private(set) lazy var channelListObserver: ListDatabaseObserver<_ChatChannel<ExtraData>, ChannelDTO> = {
         let request = ChannelDTO.channelListFetchRequest(query: self.query)
         
         let observer = self.environment.createChannelListDabaseObserver(
             client.databaseContainer.viewContext,
             request,
-            ChannelModel<ExtraData>.create
+            { $0.asModel() }
         )
         
         observer.onChange = { [unowned self] changes in
             self.delegateCallback {
                 $0.controller(self, didChangeChannels: changes)
             }
+        }
+        
+        do {
+            try observer.startObserving()
+            state = .localDataFetched
+        } catch {
+            state = .localDataFetchFailed(ClientError(with: error))
+            log.error("Failed to perform fetch request with error: \(error). This is an internal error.")
         }
         
         return observer
@@ -88,41 +111,25 @@ public class ChannelListControllerGeneric<ExtraData: ExtraDataTypes>: Controller
     /// - Parameters:
     ///   - query: The query used for filtering the channels.
     ///   - client: The `Client` instance this controller belongs to.
-    init(query: ChannelListQuery, client: Client<ExtraData>, environment: Environment = .init()) {
+    init(query: ChannelListQuery, client: _ChatClient<ExtraData>, environment: Environment = .init()) {
         self.client = client
         self.query = query
         self.environment = environment
     }
     
-    /// Starts updating the results.
-    ///
-    /// 1. **Synchronously** loads the data for the referenced objects from the local cache. These data are immediately available in
-    /// the `channels` property of the controller once this method returns. Any further changes to the data are communicated
-    /// using `delegate`.
-    ///
-    /// 2. It also **asynchronously** fetches the latest version of the data from the servers. Once the remote fetch is completed,
-    /// the completion block is called. If the updated data differ from the locally cached ones, the controller uses the `delegate`
-    /// methods to inform about the changes.
-    ///
-    /// - Parameter completion: Called when the controller has finished fetching remote data.
-    ///                         If the data fetching fails, the `error` variable contains more details about the problem.
-    public func startUpdating(_ completion: ((_ error: Error?) -> Void)? = nil) {
-        do {
-            try channelListObserver.startObserving()
-        } catch {
-            log.error("Failed to perform fetch request with error: \(error). This is an internal error.")
-            callback { completion?(ClientError.FetchFailed()) }
-            return
-        }
-
-        // Update observing state
-        state = .localDataFetched
-        
+    override public func synchronize(_ completion: ((_ error: Error?) -> Void)? = nil) {
         worker.update(channelListQuery: query) { [weak self] error in
             guard let self = self else { return }
             self.state = error == nil ? .remoteDataFetched : .remoteDataFetchFailed(ClientError(with: error))
             self.callback { completion?(error) }
         }
+    }
+    
+    /// Initializing of `channelListObserver` will start local data observing.
+    /// In most cases it will be done by accessing `channels` but it's possible that only
+    /// changes will be observed.
+    private func startChannelListObserver() {
+        _ = channelListObserver
     }
     
     /// Sets the provided object as a delegate of this controller.
@@ -133,7 +140,8 @@ public class ChannelListControllerGeneric<ExtraData: ExtraDataTypes>: Controller
     ///
     /// - Parameter delegate: The object used as a delegate. It's referenced weakly, so you need to keep the object
     /// alive if you want keep receiving updates.
-    public func setDelegate<Delegate: ChannelListControllerDelegateGeneric>(_ delegate: Delegate)
+    ///
+    public func setDelegate<Delegate: _ChatChannelListControllerDelegate>(_ delegate: Delegate)
         where Delegate.ExtraData == ExtraData {
         multicastDelegate.mainDelegate = AnyChannelListControllerDelegate(delegate)
     }
@@ -141,12 +149,14 @@ public class ChannelListControllerGeneric<ExtraData: ExtraDataTypes>: Controller
 
 // MARK: - Actions
 
-public extension ChannelListControllerGeneric {
+public extension _ChatChannelListController {
     /// Loads next channels from backend.
+    ///
     /// - Parameters:
     ///   - limit: Limit for page size.
     ///   - completion: The completion. Will be called on a **callbackQueue** when the network request is finished.
     ///                 If request fails, the completion will be called with an error.
+    ///
     func loadNextChannels(
         limit: Int = 25,
         completion: ((Error?) -> Void)? = nil
@@ -159,7 +169,9 @@ public extension ChannelListControllerGeneric {
     }
     
     /// Marks all channels for a user as read.
+    ///
     /// - Parameter completion: Called when the API call is finished. Called with `Error` if the remote update fails.
+    ///
     func markAllRead(completion: ((Error?) -> Void)? = nil) {
         worker.markAllRead { [weak self] error in
             self?.callback {
@@ -169,7 +181,7 @@ public extension ChannelListControllerGeneric {
     }
 }
 
-extension ChannelListControllerGeneric {
+extension _ChatChannelListController {
     struct Environment {
         var channelQueryUpdaterBuilder: (
             _ database: DatabaseContainer,
@@ -180,57 +192,75 @@ extension ChannelListControllerGeneric {
         var createChannelListDabaseObserver: (
             _ context: NSManagedObjectContext,
             _ fetchRequest: NSFetchRequest<ChannelDTO>,
-            _ itemCreator: @escaping (ChannelDTO) -> ChannelModel<ExtraData>?
+            _ itemCreator: @escaping (ChannelDTO) -> _ChatChannel<ExtraData>?
         )
-            -> ListDatabaseObserver<ChannelModel<ExtraData>, ChannelDTO> = {
+            -> ListDatabaseObserver<_ChatChannel<ExtraData>, ChannelDTO> = {
                 ListDatabaseObserver(context: $0, fetchRequest: $1, itemCreator: $2)
             }
     }
 }
 
-extension ChannelListControllerGeneric where ExtraData == DefaultDataTypes {
+extension _ChatChannelListController where ExtraData == DefaultExtraData {
     /// Set the delegate of `ChannelListController` to observe the changes in the system.
     ///
     /// - Note: The delegate can be set directly only if you're **not** using custom extra data types. Due to the current
     /// limits of Swift and the way it handles protocols with associated types, it's required to use `setDelegate` method
     /// instead to set the delegate, if you're using custom extra data types.
-    public weak var delegate: ChannelListControllerDelegate? {
+    public weak var delegate: ChatChannelListControllerDelegate? {
         set { multicastDelegate.mainDelegate = AnyChannelListControllerDelegate(newValue) }
-        get { multicastDelegate.mainDelegate?.wrappedDelegate as? ChannelListControllerDelegate }
+        get { multicastDelegate.mainDelegate?.wrappedDelegate as? ChatChannelListControllerDelegate }
     }
 }
 
-/// `ChannelListController` uses this protocol to communicate changes to its delegate.
+/// `ChatChannelListController` uses this protocol to communicate changes to its delegate.
 ///
 /// This protocol can be used only when no custom extra data are specified. If you're using custom extra data types,
-/// please use `GenericChannelListController` instead.
-public protocol ChannelListControllerDelegate: ControllerStateDelegate {
-    func controller(_ controller: ChannelListControllerGeneric<DefaultDataTypes>, didChangeChannels changes: [ListChange<Channel>])
-}
-
-public extension ChannelListControllerDelegate {
-    func controller(
-        _ controller: ChannelListControllerGeneric<DefaultDataTypes>,
-        didChangeChannels changes: [ListChange<Channel>]
-    ) {}
-}
-
-/// `ChannelListController` uses this protocol to communicate changes to its delegate.
+/// please use `_ChatChannelListControllerDelegate` instead.
 ///
-/// If you're **not** using custom extra data types, you can use a convenience version of this protocol
-/// named `ChannelListControllerDelegate`, which hides the generic types, and make the usage easier.
-public protocol ChannelListControllerDelegateGeneric: ControllerStateDelegate {
-    associatedtype ExtraData: ExtraDataTypes
+public protocol ChatChannelListControllerDelegate: DataControllerStateDelegate {
+    /// The controller changed the list of observed channels.
+    ///
+    /// - Parameters:
+    ///   - controller: The controller emitting the change callback.
+    ///   - changes: The change to the list of channels.\
+    ///
     func controller(
-        _ controller: ChannelListControllerGeneric<ExtraData>,
-        didChangeChannels changes: [ListChange<ChannelModel<ExtraData>>]
+        _ controller: ChatChannelListController,
+        didChangeChannels changes: [ListChange<ChatChannel>]
     )
 }
 
-public extension ChannelListControllerDelegateGeneric {
+public extension ChatChannelListControllerDelegate {
     func controller(
-        _ controller: ChannelListControllerGeneric<DefaultDataTypes>,
-        didChangeChannels changes: [ListChange<ChannelModel<ExtraData>>]
+        _ controller: _ChatChannelListController<DefaultExtraData>,
+        didChangeChannels changes: [ListChange<ChatChannel>]
+    ) {}
+}
+
+/// `ChatChannelListController` uses this protocol to communicate changes to its delegate.
+///
+/// If you're **not** using custom extra data types, you can use a convenience version of this protocol
+/// named `ChatChannelListControllerDelegate`, which hides the generic types, and make the usage easier.
+///
+public protocol _ChatChannelListControllerDelegate: DataControllerStateDelegate {
+    associatedtype ExtraData: ExtraDataTypes
+    
+    /// The controller changed the list of observed channels.
+    ///
+    /// - Parameters:
+    ///   - controller: The controller emitting the change callback.
+    ///   - changes: The change to the list of channels.\
+    ///
+    func controller(
+        _ controller: _ChatChannelListController<ExtraData>,
+        didChangeChannels changes: [ListChange<_ChatChannel<ExtraData>>]
+    )
+}
+
+public extension _ChatChannelListControllerDelegate {
+    func controller(
+        _ controller: _ChatChannelListController<DefaultExtraData>,
+        didChangeChannels changes: [ListChange<_ChatChannel<ExtraData>>]
     ) {}
 }
 
@@ -242,17 +272,17 @@ extension ClientError {
 
 // MARK: - Delegate type eraser
 
-class AnyChannelListControllerDelegate<ExtraData: ExtraDataTypes>: ChannelListControllerDelegateGeneric {
-    private var _controllerDidChangeChannels: (ChannelListControllerGeneric<ExtraData>, [ListChange<ChannelModel<ExtraData>>])
+class AnyChannelListControllerDelegate<ExtraData: ExtraDataTypes>: _ChatChannelListControllerDelegate {
+    private var _controllerDidChangeChannels: (_ChatChannelListController<ExtraData>, [ListChange<_ChatChannel<ExtraData>>])
         -> Void
-    private var _controllerDidChangeState: (Controller, Controller.State) -> Void
+    private var _controllerDidChangeState: (DataController, DataController.State) -> Void
     
     weak var wrappedDelegate: AnyObject?
     
     init(
         wrappedDelegate: AnyObject?,
-        controllerDidChangeState: @escaping (Controller, Controller.State) -> Void,
-        controllerDidChangeChannels: @escaping (ChannelListControllerGeneric<ExtraData>, [ListChange<ChannelModel<ExtraData>>])
+        controllerDidChangeState: @escaping (DataController, DataController.State) -> Void,
+        controllerDidChangeChannels: @escaping (_ChatChannelListController<ExtraData>, [ListChange<_ChatChannel<ExtraData>>])
             -> Void
     ) {
         self.wrappedDelegate = wrappedDelegate
@@ -260,20 +290,20 @@ class AnyChannelListControllerDelegate<ExtraData: ExtraDataTypes>: ChannelListCo
         _controllerDidChangeChannels = controllerDidChangeChannels
     }
 
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         _controllerDidChangeState(controller, state)
     }
 
     func controller(
-        _ controller: ChannelListControllerGeneric<ExtraData>,
-        didChangeChannels changes: [ListChange<ChannelModel<ExtraData>>]
+        _ controller: _ChatChannelListController<ExtraData>,
+        didChangeChannels changes: [ListChange<_ChatChannel<ExtraData>>]
     ) {
         _controllerDidChangeChannels(controller, changes)
     }
 }
 
 extension AnyChannelListControllerDelegate {
-    convenience init<Delegate: ChannelListControllerDelegateGeneric>(_ delegate: Delegate) where Delegate.ExtraData == ExtraData {
+    convenience init<Delegate: _ChatChannelListControllerDelegate>(_ delegate: Delegate) where Delegate.ExtraData == ExtraData {
         self.init(
             wrappedDelegate: delegate,
             controllerDidChangeState: { [weak delegate] in delegate?.controller($0, didChangeState: $1) },
@@ -282,8 +312,8 @@ extension AnyChannelListControllerDelegate {
     }
 }
 
-extension AnyChannelListControllerDelegate where ExtraData == DefaultDataTypes {
-    convenience init(_ delegate: ChannelListControllerDelegate?) {
+extension AnyChannelListControllerDelegate where ExtraData == DefaultExtraData {
+    convenience init(_ delegate: ChatChannelListControllerDelegate?) {
         self.init(
             wrappedDelegate: delegate,
             controllerDidChangeState: { [weak delegate] in delegate?.controller($0, didChangeState: $1) },

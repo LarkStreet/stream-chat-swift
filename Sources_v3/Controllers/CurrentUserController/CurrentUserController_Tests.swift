@@ -9,7 +9,7 @@ import XCTest
 final class CurrentUserController_Tests: StressTestCase {
     private var env: TestEnvironment!
     private var client: ChatClient!
-    private var controller: CurrentUserController!
+    private var controller: CurrentChatUserController!
     private var controllerCallbackQueueID: UUID!
     private var callbackQueueID: UUID { controllerCallbackQueueID }
     
@@ -19,8 +19,8 @@ final class CurrentUserController_Tests: StressTestCase {
         super.setUp()
         
         env = TestEnvironment()
-        client = Client.mock
-        controller = CurrentUserController(client: client, environment: env.currentUserControllerEnvironment)
+        client = _ChatClient.mock
+        controller = CurrentChatUserController(client: client, environment: env.currentUserControllerEnvironment)
         controllerCallbackQueueID = UUID()
         controller.callbackQueue = .testQueue(withId: controllerCallbackQueueID)
     }
@@ -40,54 +40,7 @@ final class CurrentUserController_Tests: StressTestCase {
     
     // MARK: Controller
 
-    func test_initialState() {
-        // Assert client is assigned correctly
-        XCTAssertTrue(controller.client === client)
-        
-        // Assert initial state is correct
-        XCTAssertEqual(controller.state, .inactive)
-        
-        // Assert user is nil
-        XCTAssertNil(controller.currentUser)
-        
-        // Assert unread-count is zero
-        XCTAssertEqual(controller.unreadCount, .noUnread)
-        
-        // Check the initial connection status.
-        XCTAssertEqual(controller.connectionStatus, .disconnected(error: nil))
-    }
-    
-    func test_startUpdating_changesStateCorrectly_ifCompletesWithAnyError() throws {
-        // Start updating
-        _ = try await(controller.startUpdating)
-        
-        // Assert state changes to `.localDataFetched`
-        XCTAssertEqual(controller.state, .localDataFetched)
-    }
-    
-    func test_startUpdating_stateStaysInactive_ifCompletesWithError() throws {
-        // Update mock observer to throws the error
-        env.currentUserObserverStartUpdatingError = TestError()
-
-        // Start updating
-        _ = try await(controller.startUpdating)
-        
-        // Assert state stays inative
-        XCTAssertEqual(controller.state, .inactive)
-    }
-    
-    func test_startUpdating_propogatesError() throws {
-        // Update mock observer to throws the error
-        env.currentUserObserverStartUpdatingError = TestError()
-        
-        // Start updating and catch the error
-        let startUpdatingError = try await(controller.startUpdating)
-        
-        // Assert error is propogated
-        XCTAssertNotNil(startUpdatingError)
-    }
-    
-    func test_correctDataIsAvailable_whenStartUpdatingCompletes() throws {
+    func test_initialState_whenLocalDataIsFetched() throws {
         let unreadCount = UnreadCount(channels: 10, messages: 212)
         let userPayload: CurrentUserPayload<NoExtraData> = .dummy(userId: .unique, role: .user, unreadCount: unreadCount)
 
@@ -96,12 +49,40 @@ final class CurrentUserController_Tests: StressTestCase {
             try $0.saveCurrentUser(payload: userPayload)
         }
         
-        // Start updating
-        _ = try await(controller.startUpdating)
+        // Assert client is assigned correctly
+        XCTAssertTrue(controller.client === client)
         
-        // Assert user exists
-        XCTAssertEqual(controller.unreadCount, unreadCount)
+        // Assert user is correct
         XCTAssertEqual(controller.currentUser?.id, userPayload.id)
+        
+        // Assert unread-count is correct
+        XCTAssertEqual(controller.unreadCount, unreadCount)
+        
+        // Check the initial connection status.
+        XCTAssertEqual(controller.connectionStatus, .disconnected(error: nil))
+    }
+    
+    func test_initialState_whenLocalDataFetchFailed() throws {
+        let unreadCount = UnreadCount(channels: 10, messages: 212)
+        let userPayload: CurrentUserPayload<NoExtraData> = .dummy(userId: .unique, role: .user, unreadCount: unreadCount)
+        
+        // Save user to the db
+        try client.databaseContainer.writeSynchronously {
+            try $0.saveCurrentUser(payload: userPayload)
+        }
+        
+        // Create environenment with observer thowing the error
+        let env = TestEnvironment()
+        env.currentUserObserverStartUpdatingError = TestError()
+        
+        // Create a controller with observer which fails to start observing
+        let controller = CurrentChatUserController(client: client, environment: env.currentUserControllerEnvironment)
+        
+        // Assert user is `nil`
+        XCTAssertNil(controller.currentUser)
+        
+        // Assert unread-count is `.noUnread`
+        XCTAssertEqual(controller.unreadCount, .noUnread)
     }
     
     // MARK: - Delegate
@@ -161,47 +142,9 @@ final class CurrentUserController_Tests: StressTestCase {
         AssertAsync.willBeEqual(delegate.didUpdateConnectionStatus_statuses, [.connecting, .connected])
     }
     
-    func test_delegate_isNotifiedAboutStateChanges() throws {
-        // Set the delegate
-        let delegate = TestDelegate()
-        delegate.expectedQueueId = controllerCallbackQueueID
-        controller.delegate = delegate
-        
-        // Assert no state changes received so far
-        XCTAssertNil(delegate.state)
-        
-        // Start updating
-        let startUpdatingError = try await(controller.startUpdating)
-        
-        // Assert `startUpdating` finished without any error
-        XCTAssertNil(startUpdatingError)
-        
-        // Assert delegate is notified about state changes
-        AssertAsync.willBeEqual(delegate.state, .localDataFetched)
-    }
-    
-    func test_genericDelegate_isNotifiedAboutStateChanges() throws {
-        // Set the delegate
-        let delegate = TestDelegateGeneric()
-        delegate.expectedQueueId = controllerCallbackQueueID
-        controller.setDelegate(delegate)
-        
-        // Assert no state changes received so far
-        XCTAssertNil(delegate.state)
-        
-        // Start updating
-        let startUpdatingError = try await(controller.startUpdating)
-        
-        // Assert `startUpdating` finished without any error
-        XCTAssertNil(startUpdatingError)
-        
-        // Assert delegate is notified about state changes
-        AssertAsync.willBeEqual(delegate.state, .localDataFetched)
-    }
-    
     func test_delegate_isNotifiedAboutCreatedUser() throws {
         let extraData = NameAndImageExtraData(name: .unique, imageURL: .unique())
-        let currentUserPayload: CurrentUserPayload<DefaultDataTypes.User> = .dummy(
+        let currentUserPayload: CurrentUserPayload<DefaultExtraData.User> = .dummy(
             userId: .unique,
             role: .user,
             extraData: extraData
@@ -211,12 +154,6 @@ final class CurrentUserController_Tests: StressTestCase {
         let delegate = TestDelegate()
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.delegate = delegate
-
-        // Start updating
-        let startUpdatingError = try await(controller.startUpdating)
-        
-        // Assert `startUpdating` finished without any error
-        XCTAssertNil(startUpdatingError)
 
         // Simulate saving current user to a database
         try client.databaseContainer.writeSynchronously {
@@ -232,7 +169,7 @@ final class CurrentUserController_Tests: StressTestCase {
     
     func test_delegate_isNotifiedAboutUpdatedUser() throws {
         var extraData = NameAndImageExtraData(name: .unique, imageURL: .unique())
-        var currentUserPayload: CurrentUserPayload<DefaultDataTypes.User> = .dummy(
+        var currentUserPayload: CurrentUserPayload<DefaultExtraData.User> = .dummy(
             userId: .unique,
             role: .user,
             extraData: extraData
@@ -242,12 +179,6 @@ final class CurrentUserController_Tests: StressTestCase {
         let delegate = TestDelegate()
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.delegate = delegate
-
-        // Start updating
-        let startUpdatingError = try await(controller.startUpdating)
-        
-        // Assert `startUpdating` finished without any error
-        XCTAssertNil(startUpdatingError)
 
         // Simulate saving current user to a database
         try client.databaseContainer.writeSynchronously {
@@ -282,15 +213,9 @@ final class CurrentUserController_Tests: StressTestCase {
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.delegate = delegate
 
-        // Start updating
-        let startUpdatingError = try await(controller.startUpdating)
-        
-        // Assert `startUpdating` finished without any error
-        XCTAssertNil(startUpdatingError)
-
         // Simulate saving current user to a database
         try client.databaseContainer.writeSynchronously {
-            let currentUserPayload: CurrentUserPayload<DefaultDataTypes.User> = .dummy(
+            let currentUserPayload: CurrentUserPayload<DefaultExtraData.User> = .dummy(
                 userId: .unique,
                 role: .user,
                 unreadCount: unreadCount
@@ -635,75 +560,81 @@ final class CurrentUserController_Tests: StressTestCase {
     }
 }
 
-private class TestDelegate: QueueAwareDelegate, CurrentUserControllerDelegate {
-    @Atomic var state: Controller.State?
-    @Atomic var didChangeCurrentUser_change: EntityChange<CurrentUser>?
+private class TestDelegate: QueueAwareDelegate, CurrentChatUserControllerDelegate {
+    @Atomic var state: DataController.State?
+    @Atomic var didChangeCurrentUser_change: EntityChange<CurrentChatUser>?
     @Atomic var didChangeCurrentUserUnreadCount_count: UnreadCount?
     @Atomic var didUpdateConnectionStatus_statuses = [ConnectionStatus]()
     
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state = state
         validateQueue()
     }
 
-    func currentUserController(_ controller: CurrentUserController, didChangeCurrentUser change: EntityChange<CurrentUser>) {
+    func currentUserController(
+        _ controller: CurrentChatUserController,
+        didChangeCurrentUser change: EntityChange<CurrentChatUser>
+    ) {
         didChangeCurrentUser_change = change
         validateQueue()
     }
     
-    func currentUserController(_ controller: CurrentUserController, didChangeCurrentUserUnreadCount count: UnreadCount) {
+    func currentUserController(_ controller: CurrentChatUserController, didChangeCurrentUserUnreadCount count: UnreadCount) {
         didChangeCurrentUserUnreadCount_count = count
         validateQueue()
     }
     
-    func currentUserController(_ controller: CurrentUserController, didUpdateConnectionStatus status: ConnectionStatus) {
+    func currentUserController(_ controller: CurrentChatUserController, didUpdateConnectionStatus status: ConnectionStatus) {
         _didUpdateConnectionStatus_statuses.mutate { $0.append(status) }
         validateQueue()
     }
 }
 
-private class TestDelegateGeneric: QueueAwareDelegate, CurrentUserControllerDelegateGeneric {
-    @Atomic var state: Controller.State?
-    @Atomic var didChangeCurrentUser_change: EntityChange<CurrentUser>?
+private class TestDelegateGeneric: QueueAwareDelegate, _CurrentChatUserControllerDelegate {
+    @Atomic var state: DataController.State?
+    @Atomic var didChangeCurrentUser_change: EntityChange<CurrentChatUser>?
     @Atomic var didChangeCurrentUserUnreadCount_count: UnreadCount?
     @Atomic var didUpdateConnectionStatus_statuses = [ConnectionStatus]()
     
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state = state
         validateQueue()
     }
     
-    func currentUserController(_ controller: CurrentUserController, didChangeCurrentUser change: EntityChange<CurrentUser>) {
+    func currentUserController(
+        _ controller: CurrentChatUserController,
+        didChangeCurrentUser change: EntityChange<CurrentChatUser>
+    ) {
         didChangeCurrentUser_change = change
         validateQueue()
     }
     
-    func currentUserController(_ controller: CurrentUserController, didChangeCurrentUserUnreadCount count: UnreadCount) {
+    func currentUserController(_ controller: CurrentChatUserController, didChangeCurrentUserUnreadCount count: UnreadCount) {
         didChangeCurrentUserUnreadCount_count = count
         validateQueue()
     }
     
-    func currentUserController(_ controller: CurrentUserController, didUpdateConnectionStatus status: ConnectionStatus) {
+    func currentUserController(_ controller: CurrentChatUserController, didUpdateConnectionStatus status: ConnectionStatus) {
         _didUpdateConnectionStatus_statuses.mutate { $0.append(status) }
         validateQueue()
     }
 }
 
 private class TestEnvironment {
-    var currentUserObserver: EntityDatabaseObserverMock<CurrentUser, CurrentUserDTO>!
+    var currentUserObserver: EntityDatabaseObserverMock<CurrentChatUser, CurrentUserDTO>!
     var currentUserObserverStartUpdatingError: Error?
 
-    lazy var currentUserControllerEnvironment: CurrentUserController
+    lazy var currentUserControllerEnvironment: CurrentChatUserController
         .Environment = .init(currentUserObserverBuilder: { [unowned self] in
             self.currentUserObserver = .init(context: $0, fetchRequest: $1, itemCreator: $2, fetchedResultsControllerType: $3)
-            self.currentUserObserver.startUpdatingError = self.currentUserObserverStartUpdatingError
+            self.currentUserObserver.synchronizeError = self.currentUserObserverStartUpdatingError
             return self.currentUserObserver!
         })
 }
 
 private extension WebSocketClient {
-    var typingMiddleware: TypingStartCleanupMiddleware<DefaultDataTypes>? {
-        eventNotificationCenter.middlewares.compactMap { $0 as? TypingStartCleanupMiddleware<DefaultDataTypes> }.first
+    var typingMiddleware: TypingStartCleanupMiddleware<DefaultExtraData>? {
+        eventNotificationCenter.middlewares.compactMap { $0 as? TypingStartCleanupMiddleware<DefaultExtraData> }.first
     }
 }
 

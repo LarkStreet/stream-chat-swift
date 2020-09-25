@@ -12,19 +12,30 @@ class DatabaseContainerMock: DatabaseContainer {
     @Atomic var write_errorResponse: Error?
     @Atomic var init_kind: DatabaseContainer.Kind
     @Atomic var flush_called = false
+    @Atomic var recreatePersistentStore_called = false
     
     convenience init() {
         try! self.init(kind: .inMemory)
     }
     
-    override init(kind: DatabaseContainer.Kind, modelName: String = "StreamChatModel", bundle: Bundle? = nil) throws {
+    override init(
+        kind: DatabaseContainer.Kind,
+        shouldFlushOnStart: Bool = false,
+        modelName: String = "StreamChatModel",
+        bundle: Bundle? = nil
+    ) throws {
         init_kind = kind
-        try super.init(kind: kind, modelName: modelName, bundle: bundle)
+        try super.init(kind: kind, shouldFlushOnStart: shouldFlushOnStart, modelName: modelName, bundle: bundle)
     }
     
     override func removeAllData(force: Bool, completion: ((Error?) -> Void)? = nil) {
         flush_called = true
         super.removeAllData(force: force, completion: completion)
+    }
+    
+    override func recreatePersistentStore() throws {
+        recreatePersistentStore_called = true
+        try super.recreatePersistentStore()
     }
 
     override func write(_ actions: @escaping (DatabaseSession) throws -> Void, completion: @escaping (Error?) -> Void) {
@@ -109,10 +120,16 @@ extension DatabaseContainer {
         try writeSynchronously { session in
             try session.saveChannel(payload: XCTestCase().dummyPayload(with: cid))
             
-            let message: MessagePayload<DefaultDataTypes> = .dummy(messageId: id, authorUserId: authorId, text: text)
+            let message: MessagePayload<DefaultExtraData> = .dummy(messageId: id, authorUserId: authorId, text: text)
             
             let messageDTO = try session.saveMessage(payload: message, for: cid)
             messageDTO.localMessageState = localState
+        }
+    }
+    
+    func createMember(userId: UserId = .unique, role: MemberRole = .member, cid: ChannelId) throws {
+        try writeSynchronously { session in
+            try session.saveMember(payload: .dummy(userId: userId, role: role), channelId: cid)
         }
     }
 }

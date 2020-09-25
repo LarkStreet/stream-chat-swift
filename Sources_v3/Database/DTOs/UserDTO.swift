@@ -7,8 +7,6 @@ import Foundation
 
 @objc(UserDTO)
 class UserDTO: NSManagedObject {
-    static let entityName: String = "UserDTO"
-    
     @NSManaged var extraData: Data
     @NSManaged var id: String
     @NSManaged var isBanned: Bool
@@ -82,7 +80,7 @@ extension NSManagedObjectContext: UserDatabaseSession {
 
 extension UserDTO {
     /// Snapshots the current state of `UserDTO` and returns an immutable model object from it.
-    func asModel<ExtraData: UserExtraData>() -> UserModel<ExtraData> { .create(fromDTO: self) }
+    func asModel<ExtraData: UserExtraData>() -> _ChatUser<ExtraData> { .create(fromDTO: self) }
     
     /// Snapshots the current state of `UserDTO` and returns its representation for used in API calls.
     func asRequestBody<ExtraData: UserExtraData>() -> UserRequestBody<ExtraData> {
@@ -90,8 +88,7 @@ extension UserDTO {
         do {
             extraData = try JSONDecoder.default.decode(ExtraData.self, from: self.extraData)
         } catch {
-            log.assert(
-                false,
+            log.assertationFailure(
                 "Failed decoding saved extra data with error: \(error). This should never happen because"
                     + "the extra data must be a valid JSON to be saved."
             )
@@ -101,8 +98,8 @@ extension UserDTO {
     }
 }
 
-extension UserModel {
-    fileprivate static func create(fromDTO dto: UserDTO) -> UserModel {
+extension _ChatUser {
+    fileprivate static func create(fromDTO dto: UserDTO) -> _ChatUser {
         let extraData: ExtraData
         do {
             extraData = try JSONDecoder.default.decode(ExtraData.self, from: dto.extraData)
@@ -113,7 +110,7 @@ extension UserModel {
             )
         }
         
-        return UserModel(
+        return _ChatUser(
             id: dto.id,
             isOnline: dto.isOnline,
             isBanned: dto.isBanned,

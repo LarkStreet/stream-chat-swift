@@ -25,35 +25,9 @@ class CurrentUserController_Combine_Tests: iOS13TestCase {
         super.tearDown()
     }
     
-    func test_startUpdatingIsCalled_whenPublisherIsAccessed() {
-        assert(currentUserController.startUpdating_called == false)
-        _ = currentUserController.statePublisher
-        XCTAssertTrue(currentUserController.startUpdating_called)
-    }
-    
-    func test_statePublisher() {
-        // Setup Recording publishers
-        var recording = Record<Controller.State, Never>.Recording()
-        
-        // Setup the chain
-        currentUserController
-            .statePublisher
-            .sink(receiveValue: { recording.receive($0) })
-            .store(in: &cancellables)
-        
-        // Keep only the weak reference to the controller. The existing publisher should keep it alive.
-        weak var controller: CurrentUserControllerMock? = currentUserController
-        currentUserController = nil
-        
-        controller?.delegateCallback { $0.controller(controller!, didChangeState: .localDataFetched) }
-        controller?.delegateCallback { $0.controller(controller!, didChangeState: .remoteDataFetched) }
-        
-        XCTAssertEqual(recording.output, [.inactive, .localDataFetched, .remoteDataFetched])
-    }
-
     func test_currentUserChangePublisher() {
         // Setup Recording publishers
-        var recording = Record<EntityChange<CurrentUser>, Never>.Recording()
+        var recording = Record<EntityChange<CurrentChatUser>, Never>.Recording()
         
         // Setup the chain
         currentUserController
@@ -65,7 +39,7 @@ class CurrentUserController_Combine_Tests: iOS13TestCase {
         weak var controller: CurrentUserControllerMock? = currentUserController
         currentUserController = nil
 
-        let newCurrentUser: CurrentUser = .init(id: .unique)
+        let newCurrentUser: CurrentChatUser = .init(id: .unique)
         controller?.currentUser_simulated = newCurrentUser
         controller?.delegateCallback {
             $0.currentUserController(controller!, didChangeCurrentUser: .create(newCurrentUser))

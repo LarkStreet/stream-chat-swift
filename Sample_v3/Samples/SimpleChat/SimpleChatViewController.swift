@@ -11,7 +11,7 @@ import UIKit
 /// A `UITableViewController` subclass that displays and manages a channel.  It uses the `ChannelController`  class to make calls to the Stream Chat API and listens to
 /// events by conforming to `ChannelControllerDelegate`.
 ///
-final class SimpleChatViewController: UITableViewController, ChannelControllerDelegate, UITextViewDelegate {
+final class SimpleChatViewController: UITableViewController, ChatChannelControllerDelegate, UITextViewDelegate {
     // MARK: - Properties
     
     ///
@@ -19,13 +19,13 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
     ///
     ///  The property below holds the `ChannelController` object.  It is used to make calls to the Stream Chat API and to listen to the events. After it is set,
     ///  `channelController.delegate` needs to receive a reference to a `ChannelControllerDelegate`, which, in this case, is `self`. After the delegate is set,
-    ///  `channelController.startUpdating()` must be called to start listening to events related to the channel. Additionally, `channelController.client` holds a
+    ///  `channelController.synchronize()` must be called to start listening to events related to the channel. Additionally, `channelController.client` holds a
     ///  reference to the `ChatClient` which created this instance. It can be used to create other controllers.
     ///
-    var channelController: ChannelController! {
+    var channelController: ChatChannelController! {
         didSet {
             channelController.delegate = self
-            channelController.startUpdating()
+            channelController.synchronize()
             
             if let channel = channelController?.channel {
                 channelController(channelController, didUpdateChannel: .update(channel))
@@ -37,7 +37,7 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
 
     ///
     /// The methods below are part of the `ChannelControllerDelegate` protocol and will be called when events happen in the channel. In order for these updates to happen,
-    /// `channelController.delegate` must be equal `self` and `channelController.startUpdating()` must be called.
+    /// `channelController.delegate` must be equal `self` and `channelController.synchronize()` must be called.
     ///
     
     ///
@@ -45,8 +45,23 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
     ///
     /// The method below receives the `changes` that happen in the list of messages and updates the `UITableView` accordingly.
     ///
-    func channelController(_ channelController: ChannelController, didUpdateMessages changes: [ListChange<Message>]) {
-        tableView.applyListChanges(changes: changes)
+    func channelController(_ channelController: ChatChannelController, didUpdateMessages changes: [ListChange<ChatMessage>]) {
+        tableView.beginUpdates()
+        
+        for change in changes {
+            switch change {
+            case let .insert(_, index: index):
+                tableView.insertRows(at: [index], with: .automatic)
+            case let .move(_, fromIndex: fromIndex, toIndex: toIndex):
+                tableView.moveRow(at: fromIndex, to: toIndex)
+            case let .update(_, index: index):
+                tableView.reloadRows(at: [index], with: .automatic)
+            case let .remove(_, index: index):
+                tableView.deleteRows(at: [index], with: .automatic)
+            }
+        }
+        
+        tableView.endUpdates()
     }
     
     ///
@@ -55,31 +70,27 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
     /// The method below reacts to changes in the `Channel` entity. It updates the view controller's `title` and its `navigationItem.prompt` to display the count of channel
     /// members and the count of online members. When the channel is deleted, this view controller is dismissed.
     ///
-    func channelController(_ channelController: ChannelController, didUpdateChannel channel: EntityChange<Channel>) {
+    func channelController(_ channelController: ChatChannelController, didUpdateChannel channel: EntityChange<ChatChannel>) {
         switch channel {
         case .create:
             break
-        case let .update(channel):
-            title = channel.extraData.name ?? channel.cid.description
-            navigationItem.prompt = "\(channel.members.count) members, \(channel.members.filter(\.isOnline).count) online"
+        case .update:
+            updateNavigationTitleAndPrompt()
         case .remove:
             dismiss(animated: true)
         }
     }
     
     ///
-    /// # didReceiveTypingEvent
+    /// # didChangeTypingMembers
     ///
-    /// The method below receives a `TypingEvent` and updates the view controller's `navigationItem.prompt` to show that an user is currently typing.
+    /// The method below receives a set of `Member` that are currently typing.
     ///
-    func channelController(_ channelController: ChannelController, didReceiveTypingEvent event: TypingEvent) {
-        guard let user = channelController.dataStore.user(id: event.userId) else { return }
-        
-        if event.isTyping {
-            navigationItem.prompt = "\(user.name ?? event.userId) is typing..."
-        } else {
-            navigationItem.prompt = ""
-        }
+    func channelController(
+        _ channelController: ChatChannelController,
+        didChangeTypingMembers typingMembers: Set<ChatChannelMember>
+    ) {
+        updateNavigationTitleAndPrompt()
     }
     
     // MARK: - UITableViewDataSource
@@ -112,11 +123,11 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
         
         switch message.type {
         case .deleted:
-            cell = cellWithAuthor(nil, messageText: "❌ the message was deleted")
+            cell = messageCellWithAuthor(nil, messageText: "❌ the message was deleted")
         case .error:
-            cell = cellWithAuthor(nil, messageText: "⚠️ something wrong happened")
+            cell = messageCellWithAuthor(nil, messageText: "⚠️ something wrong happened")
         default:
-            cell = cellWithAuthor(message.author.name ?? message.author.id, messageText: message.text)
+            cell = messageCellWithAuthor(message.author.name ?? message.author.id, messageText: message.text)
         }
         
         cell.backgroundColor = message.localState == nil ? .white : .lightGray
@@ -283,7 +294,7 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
     /// other users will know the current user is typing.
     ///
     func textViewDidChange(_ textView: UITextView) {
-        channelController.keystroke()
+        channelController.sendKeystrokeEvent()
     }
     
     ///
@@ -293,7 +304,7 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
     /// events so other users will know the current user stopped typing.
     ///
     func textViewDidEndEditing(_ textView: UITextView) {
-        channelController.stopTyping()
+        channelController.sendStopTypingEvent()
     }
 
     // MARK: - UI code
@@ -329,44 +340,13 @@ final class SimpleChatViewController: UITableViewController, ChannelControllerDe
 }
 
 extension SimpleChatViewController {
-    func cellWithAuthor(_ author: String?, messageText: String) -> UITableViewCell {
-        let cell: UITableViewCell!
-        if let _cell = tableView.dequeueReusableCell(withIdentifier: "MessageCell") {
-            cell = _cell
-        } else {
-            cell = UITableViewCell(style: .default, reuseIdentifier: "MessageCell")
+    func updateNavigationTitleAndPrompt() {
+        title = channelController.channel.flatMap { $0.extraData.name ?? $0.cid.description }
+        navigationItem.prompt = channelController.channel.flatMap {
+            createTypingMemberString(for: $0) ?? createMemberInfoString(for: $0)
         }
-        
-        cell.textLabel?.numberOfLines = 0
-        cell.transform = CGAffineTransform(scaleX: 1, y: -1)
-        
-        if let author = author {
-            let font = cell.textLabel?.font ?? UIFont.systemFont(ofSize: UIFont.systemFontSize)
-            let boldFont = UIFont(
-                descriptor: font.fontDescriptor.withSymbolicTraits([.traitBold]) ?? font.fontDescriptor,
-                size: font.pointSize
-            )
-            
-            let attributedString = NSMutableAttributedString()
-            attributedString.append(
-                .init(
-                    string: "\(author) ",
-                    attributes: [
-                        NSAttributedString.Key.font: boldFont,
-                        NSAttributedString.Key.foregroundColor: UIColor.forUsername(author)
-                    ]
-                )
-            )
-            attributedString.append(.init(string: messageText))
-            
-            cell.textLabel?.attributedText = attributedString
-        } else {
-            cell?.textLabel?.text = messageText
-        }
-        
-        return cell
     }
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         

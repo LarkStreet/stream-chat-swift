@@ -38,7 +38,7 @@ open class BaseLogDestination: LogDestination {
     ///   - showFunctionName: Toggle for showing function name in logs
     public required init(
         identifier: String = "",
-        level: LogLevel = .info,
+        level: LogLevel = .debug,
         showDate: Bool = true,
         dateFormatter: DateFormatter = {
             let df = DateFormatter()
@@ -91,17 +91,7 @@ open class BaseLogDestination: LogDestination {
         }
         
         if showThreadName {
-            if Thread.isMainThread {
-                extendedDetails += "[main] "
-            } else {
-                if let threadName = Thread.current.name, !threadName.isEmpty {
-                    extendedDetails += "[\(threadName)] "
-                } else if let queueName = currentQueueLabel(), !queueName.isEmpty {
-                    extendedDetails += "[\(queueName)] "
-                } else {
-                    extendedDetails += String(format: "[%p] ", Thread.current)
-                }
-            }
+            extendedDetails += logDetails.threadName
         }
         
         if showFileName {
@@ -134,9 +124,5 @@ open class BaseLogDestination: LogDestination {
     /// By minimum, subclasses should implement this function, since it handles outputting the message.
     open func write(message: String) {
         assertionFailure("Please extend this class and implement this function!")
-    }
-    
-    private func currentQueueLabel() -> String? {
-        String(validatingUTF8: __dispatch_queue_get_label(nil))
     }
 }

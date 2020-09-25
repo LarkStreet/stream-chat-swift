@@ -6,8 +6,6 @@ import CoreData
 
 @objc(MemberDTO)
 class MemberDTO: NSManagedObject {
-    static let entityName: String = "MemberDTO"
-    
     // Because we need to have a unique identifier of a member in the db, we use the combination of the related
     // user' id and the channel the member belongs to.
     @NSManaged fileprivate var id: String
@@ -74,14 +72,17 @@ extension NSManagedObjectContext {
         return dto
     }
     
-    func loadMember<ExtraData: UserExtraData>(id: String, channelId: ChannelId) -> MemberModel<ExtraData>? {
-        guard let dto = MemberDTO.load(id: id, channelId: channelId, context: self) else { return nil }
-        return MemberModel.create(fromDTO: dto)
+    func member(userId: UserId, cid: ChannelId) -> MemberDTO? {
+        MemberDTO.load(id: userId, channelId: cid, context: self)
     }
 }
 
-extension MemberModel {
-    static func create(fromDTO dto: MemberDTO) -> MemberModel {
+extension MemberDTO {
+    func asModel<ExtraData: UserExtraData>() -> _ChatChannelMember<ExtraData> { .create(fromDTO: self) }
+}
+
+extension _ChatChannelMember {
+    fileprivate static func create(fromDTO dto: MemberDTO) -> _ChatChannelMember {
         let extraData: ExtraData
         do {
             extraData = try JSONDecoder.default.decode(ExtraData.self, from: dto.user.extraData)
@@ -94,7 +95,7 @@ extension MemberModel {
         
         let role = dto.channelRoleRaw.flatMap { MemberRole(rawValue: $0) } ?? .member
         
-        return MemberModel(
+        return _ChatChannelMember(
             id: dto.user.id,
             isOnline: dto.user.isOnline,
             isBanned: dto.user.isBanned,

@@ -14,19 +14,11 @@ class CurrentUserController_SwiftUI_Tests: iOS13TestCase {
         currentUserController = CurrentUserControllerMock()
     }
     
-    func test_startUpdatingIsCalled_whenObservableObjectCreated() {
-        assert(currentUserController.startUpdating_called == false)
-        _ = currentUserController.observableObject
-        XCTAssertTrue(currentUserController.startUpdating_called)
-    }
-    
     func test_controllerInitialValuesAreLoaded() {
-        currentUserController.state_simulated = .localDataFetched
         currentUserController.currentUser_simulated = .init(id: .unique)
         
         let observableObject = currentUserController.observableObject
         
-        XCTAssertEqual(observableObject.state, currentUserController.state)
         XCTAssertEqual(observableObject.currentUser, currentUserController.currentUser)
     }
     
@@ -34,7 +26,7 @@ class CurrentUserController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = currentUserController.observableObject
         
         // Simulate current user change
-        let newCurrentUser: CurrentUser = .init(id: .unique)
+        let newCurrentUser: CurrentChatUser = .init(id: .unique)
         currentUserController.currentUser_simulated = newCurrentUser
         currentUserController.delegateCallback {
             $0.currentUserController(
@@ -62,22 +54,6 @@ class CurrentUserController_SwiftUI_Tests: iOS13TestCase {
         AssertAsync.willBeEqual(observableObject.unreadCount, newUnreadCount)
     }
     
-    func test_observableObject_reactsToDelegateStateChangesCallback() {
-        let observableObject = currentUserController.observableObject
-        
-        // Simulate state change
-        let newState: Controller.State = .remoteDataFetchFailed(ClientError(with: TestError()))
-        currentUserController.state_simulated = newState
-        currentUserController.delegateCallback {
-            $0.controller(
-                self.currentUserController,
-                didChangeState: newState
-            )
-        }
-        
-        AssertAsync.willBeEqual(observableObject.state, newState)
-    }
-    
     func test_observableObject_reactsToDelegateConnectionStatusChangesCallback() {
         let observableObject = currentUserController.observableObject
         
@@ -94,11 +70,9 @@ class CurrentUserController_SwiftUI_Tests: iOS13TestCase {
     }
 }
 
-class CurrentUserControllerMock: CurrentUserController {
-    @Atomic var startUpdating_called = false
-    
-    var currentUser_simulated: CurrentUserModel<DefaultDataTypes.User>?
-    override var currentUser: CurrentUserModel<DefaultDataTypes.User>? {
+class CurrentUserControllerMock: CurrentChatUserController {
+    var currentUser_simulated: _CurrentChatUser<DefaultExtraData.User>?
+    override var currentUser: _CurrentChatUser<DefaultExtraData.User>? {
         currentUser_simulated ?? super.currentUser
     }
     
@@ -106,18 +80,8 @@ class CurrentUserControllerMock: CurrentUserController {
     override var unreadCount: UnreadCount {
         unreadCount_simulated ?? super.unreadCount
     }
-
-    var state_simulated: Controller.State?
-    override var state: Controller.State {
-        get { state_simulated ?? super.state }
-        set { super.state = newValue }
-    }
     
     init() {
         super.init(client: .mock)
-    }
-
-    override func startUpdating(_ completion: ((Error?) -> Void)? = nil) {
-        startUpdating_called = true
     }
 }

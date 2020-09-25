@@ -15,7 +15,7 @@ class SettingsViewController: UITableViewController {
     @IBOutlet var userNameLabel: UILabel!
     @IBOutlet var userSecondaryLabel: UILabel!
     
-    var currentUserController: CurrentUserController! {
+    var currentUserController: CurrentChatUserController! {
         didSet {
             currentUserController.delegate = self
         }
@@ -24,10 +24,7 @@ class SettingsViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        currentUserController.startUpdating { [weak self] _ in
-            guard let self = self else { return }
-            self.updateUserCell(with: self.currentUserController.currentUser)
-        }
+        updateUserCell(with: currentUserController.currentUser)
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -47,7 +44,7 @@ class SettingsViewController: UITableViewController {
 // MARK: - Current User
 
 extension SettingsViewController {
-    func updateUserCell(with user: CurrentUser?) {
+    func updateUserCell(with user: CurrentChatUser?) {
         if let user = user {
             userNameLabel.text = user.name ?? ""
             userNameLabel.text! += " (\(user.id))"
@@ -97,8 +94,11 @@ extension SettingsViewController {
 
 // MARK: - CurrentUserControllerDelegate
 
-extension SettingsViewController: CurrentUserControllerDelegate {
-    func currentUserController(_ controller: CurrentUserController, didChangeCurrentUser change: EntityChange<CurrentUser>) {
+extension SettingsViewController: CurrentChatUserControllerDelegate {
+    func currentUserController(
+        _ controller: CurrentChatUserController,
+        didChangeCurrentUser change: EntityChange<CurrentChatUser>
+    ) {
         updateUserCell(with: change.item)
     }
 }
@@ -106,9 +106,15 @@ extension SettingsViewController: CurrentUserControllerDelegate {
 @available(iOS 13.0, *)
 struct SettingsView: UIViewControllerRepresentable {
     typealias UIViewControllerType = SettingsViewController
+    let currentUserController: CurrentChatUserController
     
     func makeUIViewController(context: Context) -> SettingsViewController {
-        UIStoryboard.settings.instantiateInitialViewController()?.children.first as! SettingsViewController
+        let navigationViewController = UIStoryboard.settings.instantiateInitialViewController()!
+        let settingsViewController = navigationViewController.children.first as! SettingsViewController
+        
+        settingsViewController.currentUserController = currentUserController
+        
+        return settingsViewController
     }
     
     func updateUIViewController(_ uiViewController: SettingsViewController, context: Context) {}

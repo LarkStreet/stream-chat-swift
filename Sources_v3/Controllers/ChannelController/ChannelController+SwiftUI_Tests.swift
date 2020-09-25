@@ -14,12 +14,6 @@ class ChannelController_SwiftUI_Tests: iOS13TestCase {
         channelController = ChannelControllerMock()
     }
     
-    func test_startUpdatingIsCalled_whenObservableObjectCreated() {
-        assert(channelController.startUpdating_called == false)
-        _ = channelController.observableObject
-        XCTAssertTrue(channelController.startUpdating_called)
-    }
-    
     func test_controllerInitialValuesAreLoaded() {
         channelController.state_simulated = .localDataFetched
         channelController.channel_simulated = .init(cid: .unique, extraData: .defaultValue)
@@ -36,7 +30,7 @@ class ChannelController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = channelController.observableObject
         
         // Simulate channel change
-        let newChannel: Channel = .init(cid: .unique, extraData: .defaultValue)
+        let newChannel: ChatChannel = .init(cid: .unique, extraData: .defaultValue)
         channelController.channel_simulated = newChannel
         channelController.delegateCallback {
             $0.channelController(
@@ -52,7 +46,7 @@ class ChannelController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = channelController.observableObject
         
         // Simulate messages change
-        let newMessage: Message = .unique
+        let newMessage: ChatMessage = .unique
         channelController.messages_simulated = [newMessage]
         channelController.delegateCallback {
             $0.channelController(
@@ -68,7 +62,7 @@ class ChannelController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = channelController.observableObject
         
         // Simulate state change
-        let newState: Controller.State = .remoteDataFetchFailed(ClientError(with: TestError()))
+        let newState: DataController.State = .remoteDataFetchFailed(ClientError(with: TestError()))
         channelController.state_simulated = newState
         channelController.delegateCallback {
             $0.controller(
@@ -79,23 +73,54 @@ class ChannelController_SwiftUI_Tests: iOS13TestCase {
         
         AssertAsync.willBeEqual(observableObject.state, newState)
     }
+    
+    func test_observableObject_reactsToDelegateTypingMembersChangeCallback() {
+        let observableObject = channelController.observableObject
+        
+        let typingMember = ChatChannelMember(
+            id: .unique,
+            isOnline: true,
+            isBanned: false,
+            userRole: .user,
+            userCreatedAt: .unique,
+            userUpdatedAt: .unique,
+            lastActiveAt: .unique,
+            extraData: .defaultValue,
+            memberRole: .member,
+            memberCreatedAt: .unique,
+            memberUpdatedAt: .unique,
+            isInvited: false,
+            inviteAcceptedAt: nil,
+            inviteRejectedAt: nil
+        )
+        
+        // Simulate typing members change
+        channelController.delegateCallback {
+            $0.channelController(
+                self.channelController,
+                didChangeTypingMembers: [typingMember]
+            )
+        }
+        
+        AssertAsync.willBeEqual(observableObject.typingMembers, [typingMember])
+    }
 }
 
-class ChannelControllerMock: ChannelController {
-    @Atomic var startUpdating_called = false
+class ChannelControllerMock: ChatChannelController {
+    @Atomic var synchronize_called = false
     
-    var channel_simulated: ChannelModel<DefaultDataTypes>?
-    override var channel: ChannelModel<DefaultDataTypes>? {
+    var channel_simulated: _ChatChannel<DefaultExtraData>?
+    override var channel: _ChatChannel<DefaultExtraData>? {
         channel_simulated
     }
     
-    var messages_simulated: [MessageModel<DefaultDataTypes>]?
-    override var messages: [MessageModel<DefaultDataTypes>] {
+    var messages_simulated: [_ChatMessage<DefaultExtraData>]?
+    override var messages: [_ChatMessage<DefaultExtraData>] {
         messages_simulated ?? super.messages
     }
 
-    var state_simulated: Controller.State?
-    override var state: Controller.State {
+    var state_simulated: DataController.State?
+    override var state: DataController.State {
         get { state_simulated ?? super.state }
         set { super.state = newValue }
     }
@@ -104,13 +129,13 @@ class ChannelControllerMock: ChannelController {
         super.init(channelQuery: .init(channelPayload: .unique), client: .mock)
     }
     
-    override func startUpdating(_ completion: ((Error?) -> Void)? = nil) {
-        startUpdating_called = true
+    override func synchronize(_ completion: ((Error?) -> Void)? = nil) {
+        synchronize_called = true
     }
 }
 
-extension MessageModel {
-    static var unique: Message {
+extension _ChatMessage {
+    static var unique: ChatMessage {
         .init(
             id: .unique,
             text: "",

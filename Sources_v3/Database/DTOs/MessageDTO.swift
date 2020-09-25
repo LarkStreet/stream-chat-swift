@@ -7,8 +7,6 @@ import Foundation
 
 @objc(MessageDTO)
 class MessageDTO: NSManagedObject {
-    static let entityName = "MessageDTO"
-    
     @NSManaged fileprivate var localMessageStateRaw: String?
     
     @NSManaged var id: String
@@ -111,6 +109,8 @@ class MessageDTO: NSManagedObject {
 extension MessageDTO {
     /// A possible additional local state of the message. Applies only for the messages of the current user.
     var localMessageState: LocalMessageState? {
+        // 👇This shouldn't be needed but there's a bug in SwiftLint. Remove when fixed.
+        // swiftlint:disable:next implicit_getter
         get { localMessageStateRaw.flatMap(LocalMessageState.init(rawValue:)) }
         set { localMessageStateRaw = newValue?.rawValue }
     }
@@ -195,7 +195,7 @@ extension NSManagedObjectContext: MessageDatabaseSession {
 
 extension MessageDTO {
     /// Snapshots the current state of `MessageDTO` and returns an immutable model object from it.
-    func asModel<ExtraData: ExtraDataTypes>() -> MessageModel<ExtraData> { .init(fromDTO: self) }
+    func asModel<ExtraData: ExtraDataTypes>() -> _ChatMessage<ExtraData> { .init(fromDTO: self) }
     
     /// Snapshots the current state of `MessageDTO` and returns its representation for the use in API calls.
     func asRequestBody<ExtraData: ExtraDataTypes>() -> MessageRequestBody<ExtraData> {
@@ -203,8 +203,7 @@ extension MessageDTO {
         do {
             extraData = try JSONDecoder.default.decode(ExtraData.Message.self, from: self.extraData)
         } catch {
-            log.assert(
-                false,
+            log.assertationFailure(
                 "Failed decoding saved extra data with error: \(error). This should never happen because"
                     + "the extra data must be a valid JSON to be saved."
             )
@@ -223,7 +222,7 @@ extension MessageDTO {
     }
 }
 
-extension MessageModel {
+extension _ChatMessage {
     fileprivate init(fromDTO dto: MessageDTO) {
         id = dto.id
         text = dto.text

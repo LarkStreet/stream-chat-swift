@@ -6,14 +6,9 @@ import Combine
 import UIKit
 
 @available(iOS 13, *)
-extension CurrentUserControllerGeneric {
-    /// A publisher emitting a new value every time the state of the controller changes.
-    public var statePublisher: AnyPublisher<Controller.State, Never> {
-        basePublishers.state.keepAlive(self)
-    }
-    
+extension _CurrentChatUserController {
     /// A publisher emitting a new value every time the current user changes.
-    public var currentUserChangePublisher: AnyPublisher<EntityChange<CurrentUserModel<ExtraData.User>>, Never> {
+    public var currentUserChangePublisher: AnyPublisher<EntityChange<_CurrentChatUser<ExtraData.User>>, Never> {
         basePublishers.currentUserChange.keepAlive(self)
     }
     
@@ -32,13 +27,10 @@ extension CurrentUserControllerGeneric {
     /// and expose the published values by mapping them to a read-only `AnyPublisher` type.
     class BasePublishers {
         /// The wrapper controller
-        unowned let controller: CurrentUserControllerGeneric
-        
-        /// A backing subject for `statePublisher`.
-        let state: CurrentValueSubject<Controller.State, Never>
+        unowned let controller: _CurrentChatUserController
         
         /// A backing subject for `currentUserChangePublisher`.
-        let currentUserChange: PassthroughSubject<EntityChange<CurrentUserModel<ExtraData.User>>, Never> = .init()
+        let currentUserChange: PassthroughSubject<EntityChange<_CurrentChatUser<ExtraData.User>>, Never> = .init()
         
         /// A backing subject for `unreadCountPublisher`.
         let unreadCount: CurrentValueSubject<UnreadCount, Never>
@@ -46,44 +38,34 @@ extension CurrentUserControllerGeneric {
         /// A backing subject for `connectionStatusPublisher`.
         let connectionStatus: CurrentValueSubject<ConnectionStatus, Never>
                 
-        init(controller: CurrentUserControllerGeneric<ExtraData>) {
+        init(controller: _CurrentChatUserController<ExtraData>) {
             self.controller = controller
-            state = .init(controller.state)
             unreadCount = .init(.noUnread)
             connectionStatus = .init(controller.connectionStatus)
             
             controller.multicastDelegate.additionalDelegates.append(AnyCurrentUserControllerDelegate(self))
-            
-            if controller.state == .inactive {
-                // Start updating and load the current data
-                controller.startUpdating()
-            }
         }
     }
 }
 
 @available(iOS 13, *)
-extension CurrentUserControllerGeneric.BasePublishers: CurrentUserControllerDelegateGeneric {
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
-        self.state.send(state)
-    }
-    
+extension _CurrentChatUserController.BasePublishers: _CurrentChatUserControllerDelegate {
     func currentUserController(
-        _ controller: CurrentUserControllerGeneric<ExtraData>,
+        _ controller: _CurrentChatUserController<ExtraData>,
         didChangeCurrentUserUnreadCount unreadCount: UnreadCount
     ) {
         self.unreadCount.send(unreadCount)
     }
     
     func currentUserController(
-        _ controller: CurrentUserControllerGeneric<ExtraData>,
-        didChangeCurrentUser currentUser: EntityChange<CurrentUserModel<ExtraData.User>>
+        _ controller: _CurrentChatUserController<ExtraData>,
+        didChangeCurrentUser currentUser: EntityChange<_CurrentChatUser<ExtraData.User>>
     ) {
         currentUserChange.send(currentUser)
     }
     
     func currentUserController(
-        _ controller: CurrentUserControllerGeneric<ExtraData>,
+        _ controller: _CurrentChatUserController<ExtraData>,
         didUpdateConnectionStatus status: ConnectionStatus
     ) {
         connectionStatus.send(status)

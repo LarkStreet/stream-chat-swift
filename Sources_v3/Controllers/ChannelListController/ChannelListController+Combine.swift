@@ -6,14 +6,14 @@ import Combine
 import UIKit
 
 @available(iOS 13, *)
-extension ChannelListControllerGeneric {
+extension _ChatChannelListController {
     /// A publisher emitting a new value every time the state of the controller changes.
-    public var statePublisher: AnyPublisher<Controller.State, Never> {
+    public var statePublisher: AnyPublisher<DataController.State, Never> {
         basePublishers.state.keepAlive(self)
     }
     
     /// A publisher emitting a new value every time the list of the channels matching the query changes.
-    public var channelsChangesPublisher: AnyPublisher<[ListChange<ChannelModel<ExtraData>>], Never> {
+    public var channelsChangesPublisher: AnyPublisher<[ListChange<_ChatChannel<ExtraData>>], Never> {
         basePublishers.channelsChanges.keepAlive(self)
     }
 
@@ -22,37 +22,32 @@ extension ChannelListControllerGeneric {
     /// and expose the published values by mapping them to a read-only `AnyPublisher` type.
     class BasePublishers {
         /// The wrapper controller
-        unowned let controller: ChannelListControllerGeneric
+        unowned let controller: _ChatChannelListController
         
         /// A backing subject for `statePublisher`.
-        let state: CurrentValueSubject<Controller.State, Never>
+        let state: CurrentValueSubject<DataController.State, Never>
         
         /// A backing subject for `channelsChangesPublisher`.
-        let channelsChanges: PassthroughSubject<[ListChange<ChannelModel<ExtraData>>], Never> = .init()
+        let channelsChanges: PassthroughSubject<[ListChange<_ChatChannel<ExtraData>>], Never> = .init()
                 
-        init(controller: ChannelListControllerGeneric<ExtraData>) {
+        init(controller: _ChatChannelListController<ExtraData>) {
             self.controller = controller
             state = .init(controller.state)
             
             controller.multicastDelegate.additionalDelegates.append(AnyChannelListControllerDelegate(self))
-            
-            if controller.state == .inactive {
-                // Start updating and load the current data
-                controller.startUpdating()
-            }
         }
     }
 }
 
 @available(iOS 13, *)
-extension ChannelListControllerGeneric.BasePublishers: ChannelListControllerDelegateGeneric {
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+extension _ChatChannelListController.BasePublishers: _ChatChannelListControllerDelegate {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state.send(state)
     }
     
     func controller(
-        _ controller: ChannelListControllerGeneric<ExtraData>,
-        didChangeChannels changes: [ListChange<ChannelModel<ExtraData>>]
+        _ controller: _ChatChannelListController<ExtraData>,
+        didChangeChannels changes: [ListChange<_ChatChannel<ExtraData>>]
     ) {
         channelsChanges.send(changes)
     }

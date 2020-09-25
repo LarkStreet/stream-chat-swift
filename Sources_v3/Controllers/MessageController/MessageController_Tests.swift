@@ -14,7 +14,7 @@ final class MessageController_Tests: StressTestCase {
     private var messageId: MessageId!
     private var cid: ChannelId!
     
-    private var controller: MessageController!
+    private var controller: ChatMessageController!
     private var controllerCallbackQueueID: UUID!
     private var callbackQueueID: UUID { controllerCallbackQueueID }
     
@@ -24,14 +24,14 @@ final class MessageController_Tests: StressTestCase {
         super.setUp()
         
         env = TestEnvironment()
-        client = Client.mock
+        client = _ChatClient.mock
         
         currentUserId = .unique
         messageId = .unique
         cid = .unique
         
         controllerCallbackQueueID = UUID()
-        controller = MessageController(client: client, cid: cid, messageId: messageId, environment: env.controllerEnvironment)
+        controller = ChatMessageController(client: client, cid: cid, messageId: messageId, environment: env.controllerEnvironment)
         controller.callbackQueue = .testQueue(withId: controllerCallbackQueueID)
     }
     
@@ -67,32 +67,18 @@ final class MessageController_Tests: StressTestCase {
         XCTAssertTrue(controller.client === client)
         
         // Assert initial state is correct
-        XCTAssertEqual(controller.state, .inactive)
+        XCTAssertEqual(controller.state, .initialized)
         
         // Assert message is nil
         XCTAssertNil(controller.message)
     }
     
-    // MARK: - Start updating
+    // MARK: - Synchronize
     
-    func test_startUpdating_forwardsObserverError() throws {
-        // Update observer to throw the error
-        let observerError = TestError()
-        env.messageObserver_startUpdatingError = observerError
-        
-        // Simulate `startUpdating` call
-        let completionError = try await(controller.startUpdating)
-        
-        // Assert correct error is received
-        XCTAssertEqual(completionError as? ClientError, ClientError(with: observerError))
-        // Assert controller stays in `.inactive` state
-        XCTAssertEqual(controller.state, .inactive)
-    }
-    
-    func test_startUpdating_forwardsUpdaterError() throws {
-        // Simulate `startUpdating` call
+    func test_synchronize_forwardsUpdaterError() throws {
+        // Simulate `synchronize` call
         var completionError: Error?
-        controller.startUpdating {
+        controller.synchronize {
             completionError = $0
         }
         
@@ -108,11 +94,11 @@ final class MessageController_Tests: StressTestCase {
         }
     }
     
-    func test_startUpdating_changesStateCorrectly_ifNoErrorsHappen() throws {
-        // Simulate `startUpdating` call
+    func test_synchronize_changesStateCorrectly_ifNoErrorsHappen() throws {
+        // Simulate `synchronize` call
         var completionError: Error?
         var completionCalled = false
-        controller.startUpdating {
+        controller.synchronize {
             completionError = $0
             completionCalled = true
         }
@@ -133,13 +119,13 @@ final class MessageController_Tests: StressTestCase {
         }
     }
     
-    // MARK: - Updates
-
-    func test_messageIsUpToDate_onAllStartUpdatingStages() throws {
-        let messageLocalText: MessageId = .unique
-        
-        // Assert message is `nil` initially
+    // MARK: - Synchronize
+    
+    func test_messageIsUpToDate_withoutSynchronizeCall() throws {
+        // Assert message is `nil` initially and start observing DB
         XCTAssertNil(controller.message)
+        
+        let messageLocalText: String = .unique
         
         // Create current user in the database
         try client.databaseContainer.createCurrentUser(id: currentUserId)
@@ -147,20 +133,13 @@ final class MessageController_Tests: StressTestCase {
         // Create message in that matches controller's `messageId`
         try client.databaseContainer.createMessage(id: messageId, authorId: currentUserId, cid: cid, text: messageLocalText)
         
-        // Simulate `startUpdating` call
-        var completionCalled = false
-        controller.startUpdating {
-            XCTAssertNil($0)
-            completionCalled = true
-        }
-        
         // Assert message is fetched from the database and has correct field values
         var message = try XCTUnwrap(controller.message)
         XCTAssertEqual(message.id, messageId)
         XCTAssertEqual(message.text, messageLocalText)
         
         // Simulate response from the backend with updated `text`, update the local message in the databse
-        let messagePayload: MessagePayload<DefaultDataTypes> = .dummy(
+        let messagePayload: MessagePayload<DefaultExtraData> = .dummy(
             messageId: messageId,
             authorUserId: currentUserId,
             text: .unique
@@ -168,10 +147,6 @@ final class MessageController_Tests: StressTestCase {
         try client.databaseContainer.writeSynchronously { session in
             try session.saveMessage(payload: messagePayload, for: self.cid)
         }
-        env.messageUpdater.getMessage_completion?(nil)
-        
-        // Assert completion is called
-        AssertAsync.willBeTrue(completionCalled)
         
         // Assert the controller's `message` is up-to-date
         message = try XCTUnwrap(controller.message)
@@ -190,22 +165,32 @@ final class MessageController_Tests: StressTestCase {
         // Assert the delegate is assigned correctly
         XCTAssert(controller.delegate === delegate)
     }
+    
+    func test_settingDelegate_leads_to_FetchingLocalData() {
+        let delegate = TestDelegate()
+        delegate.expectedQueueId = controllerCallbackQueueID
+        
+        // Check initial state
+        XCTAssertEqual(controller.state, .initialized)
+        
+        controller.delegate = delegate
+        
+        // Assert state changed
+        AssertAsync.willBeEqual(controller.state, .localDataFetched)
+    }
 
     func test_delegate_isNotifiedAboutStateChanges() throws {
         // Set the delegate
         let delegate = TestDelegate()
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.delegate = delegate
-
-        // Assert no state changes received so far
-        XCTAssertNil(delegate.state)
-
-        // Start updating
-        controller.startUpdating()
         
         // Assert delegate is notified about state changes
         AssertAsync.willBeEqual(delegate.state, .localDataFetched)
-        
+
+        // Synchronize
+        controller.synchronize()
+            
         // Simulate network call response
         env.messageUpdater.getMessage_completion?(nil)
         
@@ -218,15 +203,12 @@ final class MessageController_Tests: StressTestCase {
         let delegate = TestDelegateGeneric()
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.setDelegate(delegate)
-
-        // Assert no state changes received so far
-        XCTAssertNil(delegate.state)
-        
-        // Start updating
-        controller.startUpdating()
         
         // Assert delegate is notified about state changes
         AssertAsync.willBeEqual(delegate.state, .localDataFetched)
+
+        // Synchronize
+        controller.synchronize()
         
         // Simulate network call response
         env.messageUpdater.getMessage_completion?(nil)
@@ -247,11 +229,11 @@ final class MessageController_Tests: StressTestCase {
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.delegate = delegate
         
-        // Simulate `startUpdating` call
-        controller.startUpdating()
+        // Simulate `synchronize` call
+        controller.synchronize()
 
         // Simulate response from a backend with a message that doesn't exist locally
-        let messagePayload: MessagePayload<DefaultDataTypes> = .dummy(
+        let messagePayload: MessagePayload<DefaultExtraData> = .dummy(
             messageId: messageId,
             authorUserId: currentUserId
         )
@@ -284,11 +266,11 @@ final class MessageController_Tests: StressTestCase {
         delegate.expectedQueueId = controllerCallbackQueueID
         controller.delegate = delegate
         
-        // Simulate `startUpdating` call
-        controller.startUpdating()
+        // Simulate `synchronize` call
+        controller.synchronize()
         
         // Simulate response from a backend with a message that exists locally but has out-dated text
-        let messagePayload: MessagePayload<DefaultDataTypes> = .dummy(
+        let messagePayload: MessagePayload<DefaultExtraData> = .dummy(
             messageId: messageId,
             authorUserId: currentUserId,
             text: "new text"
@@ -393,46 +375,46 @@ final class MessageController_Tests: StressTestCase {
     }
 }
 
-private class TestDelegate: QueueAwareDelegate, MessageControllerDelegate {
-    @Atomic var state: Controller.State?
-    @Atomic var didChangeMessage_change: EntityChange<Message>?
+private class TestDelegate: QueueAwareDelegate, ChatMessageControllerDelegate {
+    @Atomic var state: DataController.State?
+    @Atomic var didChangeMessage_change: EntityChange<ChatMessage>?
     
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state = state
         validateQueue()
     }
     
-    func messageController(_ controller: MessageController, didChangeMessage change: EntityChange<Message>) {
+    func messageController(_ controller: ChatMessageController, didChangeMessage change: EntityChange<ChatMessage>) {
         didChangeMessage_change = change
         validateQueue()
     }
 }
 
-private class TestDelegateGeneric: QueueAwareDelegate, MessageControllerDelegateGeneric {
-    @Atomic var state: Controller.State?
-    @Atomic var didChangeMessage_change: EntityChange<Message>?
+private class TestDelegateGeneric: QueueAwareDelegate, _MessageControllerDelegate {
+    @Atomic var state: DataController.State?
+    @Atomic var didChangeMessage_change: EntityChange<ChatMessage>?
    
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state = state
         validateQueue()
     }
     
-    func messageController(_ controller: MessageController, didChangeMessage change: EntityChange<Message>) {
+    func messageController(_ controller: ChatMessageController, didChangeMessage change: EntityChange<ChatMessage>) {
         didChangeMessage_change = change
         validateQueue()
     }
 }
 
 private class TestEnvironment {
-    var messageUpdater: MessageUpdaterMock<DefaultDataTypes>!
-    var messageObserver: EntityDatabaseObserverMock<MessageModel<DefaultDataTypes>, MessageDTO>!
-    var messageObserver_startUpdatingError: Error?
+    var messageUpdater: MessageUpdaterMock<DefaultExtraData>!
+    var messageObserver: EntityDatabaseObserverMock<_ChatMessage<DefaultExtraData>, MessageDTO>!
+    var messageObserver_synchronizeError: Error?
     
-    lazy var controllerEnvironment: MessageController
+    lazy var controllerEnvironment: ChatMessageController
         .Environment = .init(
             messageObserverBuilder: { [unowned self] in
                 self.messageObserver = .init(context: $0, fetchRequest: $1, itemCreator: $2, fetchedResultsControllerType: $3)
-                self.messageObserver.startUpdatingError = self.messageObserver_startUpdatingError
+                self.messageObserver.synchronizeError = self.messageObserver_synchronizeError
                 return self.messageObserver!
             },
             messageUpdaterBuilder: { [unowned self] in

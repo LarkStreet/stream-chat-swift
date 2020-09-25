@@ -24,14 +24,16 @@ class ChannelDTO_Tests: XCTestCase {
         }
         
         // Load the channel from the db and check the fields are correct
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         AssertAsync {
             // Channel details
             Assert.willBeEqual(channelId, loadedChannel?.cid)
             
+            Assert.willBeEqual(payload.watcherCount, loadedChannel?.watcherCount)
+            Assert.willBeEqual(payload.channel.memberCount, loadedChannel?.memberCount)
             Assert.willBeEqual(payload.channel.extraData, loadedChannel?.extraData)
             Assert.willBeEqual(payload.channel.typeRawValue, loadedChannel?.type.rawValue)
             Assert.willBeEqual(payload.channel.lastMessageAt, loadedChannel?.lastMessageAt)
@@ -67,19 +69,19 @@ class ChannelDTO_Tests: XCTestCase {
             Assert.willBeEqual(payload.channel.createdBy!.teams, loadedChannel?.createdBy?.teams)
             
             // Members
-            Assert.willBeEqual(payload.members[0].role, loadedChannel?.members.first?.memberRole)
-            Assert.willBeEqual(payload.members[0].createdAt, loadedChannel?.members.first?.memberCreatedAt)
-            Assert.willBeEqual(payload.members[0].updatedAt, loadedChannel?.members.first?.memberUpdatedAt)
+            Assert.willBeEqual(payload.members[0].role, loadedChannel?.cachedMembers.first?.memberRole)
+            Assert.willBeEqual(payload.members[0].createdAt, loadedChannel?.cachedMembers.first?.memberCreatedAt)
+            Assert.willBeEqual(payload.members[0].updatedAt, loadedChannel?.cachedMembers.first?.memberUpdatedAt)
             
-            Assert.willBeEqual(payload.members[0].user.id, loadedChannel?.members.first?.id)
-            Assert.willBeEqual(payload.members[0].user.createdAt, loadedChannel?.members.first?.userCreatedAt)
-            Assert.willBeEqual(payload.members[0].user.updatedAt, loadedChannel?.members.first?.userUpdatedAt)
-            Assert.willBeEqual(payload.members[0].user.lastActiveAt, loadedChannel?.members.first?.lastActiveAt)
-            Assert.willBeEqual(payload.members[0].user.isOnline, loadedChannel?.members.first?.isOnline)
-            Assert.willBeEqual(payload.members[0].user.isBanned, loadedChannel?.members.first?.isBanned)
-            Assert.willBeEqual(payload.members[0].user.role, loadedChannel?.members.first?.userRole)
-            Assert.willBeEqual(payload.members[0].user.extraData, loadedChannel?.members.first?.extraData)
-            Assert.willBeEqual(payload.members[0].user.teams, loadedChannel?.members.first?.teams)
+            Assert.willBeEqual(payload.members[0].user.id, loadedChannel?.cachedMembers.first?.id)
+            Assert.willBeEqual(payload.members[0].user.createdAt, loadedChannel?.cachedMembers.first?.userCreatedAt)
+            Assert.willBeEqual(payload.members[0].user.updatedAt, loadedChannel?.cachedMembers.first?.userUpdatedAt)
+            Assert.willBeEqual(payload.members[0].user.lastActiveAt, loadedChannel?.cachedMembers.first?.lastActiveAt)
+            Assert.willBeEqual(payload.members[0].user.isOnline, loadedChannel?.cachedMembers.first?.isOnline)
+            Assert.willBeEqual(payload.members[0].user.isBanned, loadedChannel?.cachedMembers.first?.isBanned)
+            Assert.willBeEqual(payload.members[0].user.role, loadedChannel?.cachedMembers.first?.userRole)
+            Assert.willBeEqual(payload.members[0].user.extraData, loadedChannel?.cachedMembers.first?.extraData)
+            Assert.willBeEqual(payload.members[0].user.teams, loadedChannel?.cachedMembers.first?.teams)
             // Assert.willBeEqual(payload.members[0].user.isInvisible, loadedChannel?.members.first?.isInvisible)
             // Assert.willBeEqual(payload.members[0].user.devices, loadedChannel?.members.first?.devices)
             // Assert.willBeEqual(payload.members[0].user.mutedUsers, loadedChannel?.members.first?.mutedUsers)
@@ -131,14 +133,16 @@ class ChannelDTO_Tests: XCTestCase {
         }
         
         // Load the channel from the db and check the fields are correct
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         AssertAsync {
             // Channel details
             Assert.willBeEqual(channelId, loadedChannel?.cid)
             
+            Assert.willBeEqual(payload.watcherCount, loadedChannel?.watcherCount)
+            Assert.willBeEqual(payload.channel.memberCount, loadedChannel?.memberCount)
             Assert.willBeEqual(payload.channel.typeRawValue, loadedChannel?.type.rawValue)
             Assert.willBeEqual(payload.channel.lastMessageAt, loadedChannel?.lastMessageAt)
             Assert.willBeEqual(payload.channel.createdAt, loadedChannel?.createdAt)
@@ -172,18 +176,18 @@ class ChannelDTO_Tests: XCTestCase {
             Assert.willBeEqual(payload.channel.createdBy!.teams, loadedChannel?.createdBy?.teams)
             
             // Members
-            Assert.willBeEqual(payload.members[0].role, loadedChannel?.members.first?.memberRole)
-            Assert.willBeEqual(payload.members[0].createdAt, loadedChannel?.members.first?.memberCreatedAt)
-            Assert.willBeEqual(payload.members[0].updatedAt, loadedChannel?.members.first?.memberUpdatedAt)
+            Assert.willBeEqual(payload.members[0].role, loadedChannel?.cachedMembers.first?.memberRole)
+            Assert.willBeEqual(payload.members[0].createdAt, loadedChannel?.cachedMembers.first?.memberCreatedAt)
+            Assert.willBeEqual(payload.members[0].updatedAt, loadedChannel?.cachedMembers.first?.memberUpdatedAt)
             
-            Assert.willBeEqual(payload.members[0].user.id, loadedChannel?.members.first?.id)
-            Assert.willBeEqual(payload.members[0].user.createdAt, loadedChannel?.members.first?.userCreatedAt)
-            Assert.willBeEqual(payload.members[0].user.updatedAt, loadedChannel?.members.first?.userUpdatedAt)
-            Assert.willBeEqual(payload.members[0].user.lastActiveAt, loadedChannel?.members.first?.lastActiveAt)
-            Assert.willBeEqual(payload.members[0].user.isOnline, loadedChannel?.members.first?.isOnline)
-            Assert.willBeEqual(payload.members[0].user.isBanned, loadedChannel?.members.first?.isBanned)
-            Assert.willBeEqual(payload.members[0].user.role, loadedChannel?.members.first?.userRole)
-            Assert.willBeEqual(payload.members[0].user.teams, loadedChannel?.members.first?.teams)
+            Assert.willBeEqual(payload.members[0].user.id, loadedChannel?.cachedMembers.first?.id)
+            Assert.willBeEqual(payload.members[0].user.createdAt, loadedChannel?.cachedMembers.first?.userCreatedAt)
+            Assert.willBeEqual(payload.members[0].user.updatedAt, loadedChannel?.cachedMembers.first?.userUpdatedAt)
+            Assert.willBeEqual(payload.members[0].user.lastActiveAt, loadedChannel?.cachedMembers.first?.lastActiveAt)
+            Assert.willBeEqual(payload.members[0].user.isOnline, loadedChannel?.cachedMembers.first?.isOnline)
+            Assert.willBeEqual(payload.members[0].user.isBanned, loadedChannel?.cachedMembers.first?.isBanned)
+            Assert.willBeEqual(payload.members[0].user.role, loadedChannel?.cachedMembers.first?.userRole)
+            Assert.willBeEqual(payload.members[0].user.teams, loadedChannel?.cachedMembers.first?.teams)
             // Assert.willBeEqual(payload.members[0].user.isInvisible, loadedChannel?.members.first?.isInvisible)
             // Assert.willBeEqual(payload.members[0].user.devices, loadedChannel?.members.first?.devices)
             // Assert.willBeEqual(payload.members[0].user.mutedUsers, loadedChannel?.members.first?.mutedUsers)
@@ -358,14 +362,44 @@ class ChannelDTO_Tests: XCTestCase {
         }
         
         // Load the channel from the db and check the if fields are correct
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         AssertAsync {
             Assert.willBeEqual(loadedChannel?.unreadCount.messages, self.dummyChannelRead.unreadMessagesCount)
             Assert.willBeEqual(loadedChannel?.unreadCount.mentionedMessages, 1)
         }
+    }
+    
+    func test_typingMembers_areCleared_onResetEphemeralValues() throws {
+        let cid: ChannelId = .unique
+        let memberId: UserId = .unique
+        
+        // Create channel in the database
+        try database.createChannel(cid: cid)
+        // Create member in the database
+        try database.createMember(userId: memberId, cid: cid)
+        // Set created member as a typing member
+        try database.writeSynchronously { session in
+            let channel = try XCTUnwrap(session.channel(cid: cid))
+            let member = try XCTUnwrap(session.member(userId: memberId, cid: cid))
+            channel.currentlyTypingMembers.insert(member)
+        }
+        
+        // Load the channel
+        var channel: ChatChannel {
+            database.viewContext.channel(cid: cid)!.asModel()
+        }
+        
+        // Assert channel's currentlyTypingMembers are not empty
+        XCTAssertFalse(channel.currentlyTypingMembers.isEmpty)
+        
+        // Simulate `resetEphemeralValues`
+        database.resetEphemeralValues()
+        
+        // Assert channel's currentlyTypingMembers are cleared
+        AssertAsync.willBeTrue(channel.currentlyTypingMembers.isEmpty)
     }
     
     private func encodedChannelListSortingKey(_ sortingKey: ChannelListSortingKey) -> String {
@@ -417,7 +451,7 @@ extension XCTestCase {
         )
     }
     
-    var dummyMessage: MessagePayload<DefaultDataTypes> {
+    var dummyMessage: MessagePayload<DefaultExtraData> {
         MessagePayload(
             id: .unique,
             type: .regular,
@@ -438,11 +472,11 @@ extension XCTestCase {
         )
     }
     
-    var dummyChannelRead: ChannelReadPayload<DefaultDataTypes> {
+    var dummyChannelRead: ChannelReadPayload<DefaultExtraData> {
         ChannelReadPayload(user: dummyCurrentUser, lastReadAt: Date(timeIntervalSince1970: 1), unreadMessagesCount: 10)
     }
     
-    func dummyPayload(with channelId: ChannelId) -> ChannelPayload<DefaultDataTypes> {
+    func dummyPayload(with channelId: ChannelId) -> ChannelPayload<DefaultExtraData> {
         let member: MemberPayload<NameAndImageExtraData> =
             .init(
                 user: .init(
@@ -465,7 +499,7 @@ extension XCTestCase {
         let channelCreatedDate = Date.unique
         let lastMessageAt: Date? = Bool.random() ? channelCreatedDate.addingTimeInterval(.random(in: 100_000...900_000)) : nil
         
-        let payload: ChannelPayload<DefaultDataTypes> =
+        let payload: ChannelPayload<DefaultExtraData> =
             .init(
                 channel: .init(
                     cid: channelId,
