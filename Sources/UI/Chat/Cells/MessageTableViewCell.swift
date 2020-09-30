@@ -45,6 +45,94 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
         label.textAlignment = .center
         return label
     }()
+
+    private func setSelected(_ selected: Bool) {
+        var image: UIImage? = nil
+        
+        if let text = messageLabel.text, !text.messageContainsOnlyEmoji {
+            image = messageBackgroundImage()
+        }
+        
+        messageContainerView.image = selected ? nil : image
+        messageLabel.backgroundColor = selected ? .clear : style.backgroundColor
+    }
+    
+    var previewView: UIView? {
+        setSelected(true)
+        
+        defer { DispatchQueue.main.async { self.setSelected(false) } }
+        
+        let isLeftAlignment = style.alignment == .left
+        
+        let contentMessageFrame = messageStackView.frame
+
+        var extraHeight: CGFloat = 0
+        var snapShotY: CGFloat = contentMessageFrame.origin.y + extraHeight
+        
+        let visibleSubviews = messageStackView.arrangedSubviews.filter { !$0.isHidden }
+        
+        if (visibleSubviews.first as? AttachmentPreview) == nil && visibleSubviews.first != messageContainerView {
+            extraHeight = extraHeight + (visibleSubviews.first?.frame.height ?? 0)
+            snapShotY = contentMessageFrame.origin.y + extraHeight
+        }
+        
+        if (visibleSubviews.last as? AttachmentPreview) == nil && visibleSubviews.last != messageContainerView {
+            extraHeight = extraHeight + (visibleSubviews.last?.frame.height ?? 0)
+        }
+            
+        var height = contentMessageFrame.height - extraHeight
+        
+        if avatarView.bounds.height > height {
+            height = avatarView.bounds.height
+        }
+        
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = .white
+        
+        backgroundView.layer.cornerRadius = 12
+        backgroundView.layer.borderWidth = style.borderWidth
+        backgroundView.layer.borderColor = style.borderColor.cgColor
+        backgroundView.layer.masksToBounds = true
+    
+        let snapShotFrame = CGRect(x: contentMessageFrame.origin.x, y: snapShotY,
+                                   width: contentMessageFrame.width,
+                                   height: height)
+        
+        let avatarX = isLeftAlignment ? contentView.frame.origin.x : contentMessageFrame.origin.x + contentMessageFrame.width
+
+        let avatarSnapShotFrame = CGRect(x: avatarX,
+                                         y: avatarView.frame.origin.y,
+                                         width: CGFloat.messageTextPaddingWithAvatar,
+                                         height: height)
+    
+        guard let snapShotView = contentView.resizableSnapshotView(from: snapShotFrame,
+                                                                   afterScreenUpdates: true, withCapInsets: .zero),
+              let avatarSnapShotView = contentView.resizableSnapshotView(from: avatarSnapShotFrame,
+                                                                         afterScreenUpdates: true, withCapInsets: .zero) else {
+            return nil
+        }
+                
+        let finalX = isLeftAlignment ? avatarSnapShotFrame.origin.x: snapShotFrame.origin.x
+        
+        let finalFrame = CGRect(x: finalX, y: snapShotFrame.origin.y, width: snapShotFrame.width + avatarSnapShotFrame.width, height: snapShotFrame.height)
+        
+        let finalView = UIView(frame: finalFrame)
+        finalView.addSubview(backgroundView)
+        backgroundView.addSubview(snapShotView)
+        finalView.addSubview(avatarSnapShotView)
+
+        finalView.clipsToBounds = true
+        
+        let backgroundViewX: CGFloat = isLeftAlignment ? avatarSnapShotView.frame.width : 0
+        let avatarViewX: CGFloat = isLeftAlignment ? 0 : snapShotView.frame.width
+        
+        backgroundView.frame = CGRect(x: backgroundViewX, y: 0,
+                                      width: snapShotView.frame.width, height: snapShotView.frame.height)
+        avatarSnapShotView.frame = CGRect(x: avatarViewX, y: avatarSnapShotView.frame.height - avatarView.frame.height,
+                                          width: avatarSnapShotView.frame.width, height: avatarSnapShotView.frame.height)
+        
+        return finalView
+    }
     
     private(set) lazy var nameAndDateStackView: UIStackView = {
         let stackView = UIStackView(arrangedSubviews: [nameLabel, dateLabel])
@@ -243,8 +331,14 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
         messageContainerView.addSubview(messageLabel)
         
         messageLabel.snp.makeConstraints { make in
-            make.left.equalTo(style.messageInsetSpacing.horizontal)
-            make.right.equalTo(-style.messageInsetSpacing.horizontal)
+            if style.alignment == .left {
+                make.left.equalTo(style.messageInsetSpacing.horizontal)
+                make.right.lessThanOrEqualTo(-style.messageInsetSpacing.horizontal)
+            } else {
+                make.left.greaterThanOrEqualTo(style.messageInsetSpacing.horizontal)
+                make.right.equalTo(-style.messageInsetSpacing.horizontal)
+            }
+           
             make.top.equalTo(style.messageInsetSpacing.vertical).priority(999)
             make.bottom.equalTo(-style.messageInsetSpacing.vertical).priority(999)
         }
@@ -258,9 +352,9 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
             
             if style.alignment == .left {
                 make.left.equalToSuperview().offset(style.marginWithAvatarOffset).priority(999)
-                make.right.equalToSuperview().offset(-CGFloat.messageTextPaddingWithAvatar).priority(999)
+                make.right.lessThanOrEqualToSuperview().offset(-CGFloat.messageTextPaddingWithAvatar).priority(999)
             } else {
-                make.left.equalToSuperview().offset(CGFloat.messageTextPaddingWithAvatar).priority(999)
+                make.left.greaterThanOrEqualToSuperview().offset(CGFloat.messageTextPaddingWithAvatar).priority(999)
                 make.right.equalToSuperview().offset(-style.marginWithAvatarOffset).priority(999)
             }
         }
@@ -371,7 +465,6 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
             avatarView.isHidden = true
             avatarView.backgroundColor = backgroundColor
         }
-        
         bottomEdgeInsetConstraint?.update(offset: style.edgeInsets.bottom)
         
         replyCountButton.isHidden = true

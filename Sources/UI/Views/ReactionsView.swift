@@ -17,6 +17,8 @@ import RxGesture
 final class ReactionsView: UIView {
     typealias Completion = (_ selectedType: String, _ score: Int) -> Bool?
     
+    var onDismissAction: (() -> Void)?
+    
     private let disposeBag = DisposeBag()
     
     private lazy var avatarsStackView = createAvatarsStackView()
@@ -24,6 +26,8 @@ final class ReactionsView: UIView {
     private lazy var labelsStackView = createLabelsStackView()
     private var emojiReactionTypes: EmojiReactionTypes = [:]
     private var reactionScores: [String: Int] = [:]
+
+    private var selectedView: UIView?
     
     private(set) lazy var reactionsView: UIView = {
         let view = UIView(frame: .zero)
@@ -40,8 +44,13 @@ final class ReactionsView: UIView {
               at point: CGPoint,
               for message: Message,
               with preferredEmojiOrder: [String],
+              from selectedView: UIView,
+              in frame: CGRect,
               completion: @escaping Completion) {
+        
+        self.selectedView = selectedView
         addSubview(reactionsView)
+        
         self.emojiReactionTypes = emojiReactionTypes
         reactionScores = message.reactionScores
         
@@ -56,10 +65,13 @@ final class ReactionsView: UIView {
         let x = min(max(point.x - width / 2, .messageTextPaddingWithAvatar),
                     .minScreenWidth - width - .messageTextPaddingWithAvatar)
         
+        var yPozition = selectedView.frame.maxY + .messageVerticalInset
+        
         let y = max(safeAreaTopOffset + .reactionsPickerAvatarRadius + .messageEdgePadding,
                     point.y - .reactionsPickerCornerRadius)
         
-        reactionsView.frame = CGRect(x: x, y: y, width: width, height: .reactionsPickerCornerHeight)
+        reactionsView.frame = CGRect(x: x, y: yPozition, width: width, height: .reactionsPickerCornerHeight)
+        
         reactionsView.transform = .init(scaleX: 0.5, y: 0.5)
         alpha = 0
         
@@ -84,19 +96,25 @@ final class ReactionsView: UIView {
             labelsStackView.addArrangedSubview(createLabel(score))
         }
         
+        let translation: CGFloat = message.isOwn ? -.messageVerticalInset : .messageVerticalInset
+        
+        var translationY: CGFloat = 0
+        
+        if reactionsView.frame.maxY > frame.maxY{
+            translationY = -(reactionsView.frame.maxY - frame.maxY - .messageVerticalInset)
+        }
+        
+        if selectedView.frame.origin.y < frame.origin.y {
+            translationY = abs(frame.minY - selectedView.frame.minY + .messageVerticalInset)
+        }
+                
         UIView.animateSmoothly(withDuration: 0.3, usingSpringWithDamping: 0.65) {
             self.alpha = 1
             self.reactionsView.transform = .identity
+            selectedView.transform = .init(scaleX: 1.1, y: 1.1)
+            selectedView.transform = .init(translationX: translation, y: translationY)
+            selectedView.transform = .init(translationX: 0, y: translationY)
         }
-        
-        let view  = UIView(frame: .zero)
-        insertSubview(view, at: 0)
-        view.makeEdgesEqualToSuperview()
-        
-        view.rx.tapGesture()
-            .when(.recognized)
-            .subscribe(onNext: { [weak self] _ in self?.dismiss() })
-            .disposed(by: disposeBag)
     }
     
     func update(with message: Message) {
@@ -144,8 +162,10 @@ final class ReactionsView: UIView {
         UIView.animateSmoothly(withDuration: 0.25, animations: {
             self.alpha = 0
             self.reactionsView.transform = .init(scaleX: 0.2, y: 0.2)
-        }) { _ in
-            self.removeFromSuperview()
+            self.selectedView?.transform = .identity
+        }) { [weak self] _ in
+            self?.onDismissAction?()
+            self?.removeFromSuperview()
         }
     }
     
@@ -177,6 +197,10 @@ final class ReactionsView: UIView {
         label.textAlignment = .center
         label.font = .reactionsEmoji
         label.snp.makeConstraints { $0.width.height.equalTo(CGFloat.reactionsPickerButtonWidth).priority(999) }
+                
+        label.layer.cornerRadius = CGFloat.reactionsPickerButtonWidth / 2
+        label.layer.borderColor = style.textColor.withAlphaComponent(alpha: 0.03).cgColor
+        label.layer.borderWidth = 1
         
         var reactionScore = reaction.score
         var wasSend = false

@@ -72,18 +72,42 @@ extension ChatViewController {
         
         let messageId = message.id
         let reactionsView = ReactionsView(frame: .zero)
-        reactionsView.backgroundColor = style.incomingMessage.chatBackgroundColor.withAlphaComponent(0.4)
+        reactionsView.onDismissAction = { [weak self] in
+            self?.hideBackground()
+        }
+        reactionsView.backgroundColor = style.incomingMessage.reactionViewStyle.chatBackgroundColor
         reactionsView.reactionsView.backgroundColor = style.incomingMessage.reactionViewStyle.backgroundColor
-        reactionsView.makeEdgesEqualToSuperview(superview: view)
+  
         self.reactionsView = reactionsView
         
-        let convertedOrigin = tableView.convert(cell.frame, to: view).origin
-        let position = CGPoint(x: convertedOrigin.x + locationInView.x, y: convertedOrigin.y + locationInView.y)
+        guard let messageCell = cell as? MessageTableViewCell, let snapshot = messageCell.previewView else {
+            return
+        }
+        
+        var statusBarHeight: CGFloat = 0
+        
+        if #available(iOS 13.0, *) {
+            statusBarHeight = view.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
+        }
+        
+        var convertedFrameinCell = messageCell.contentView.convert(snapshot.frame, to: tableView)
+        var convertedFrame = tableView.convert(convertedFrameinCell, to: vc.view)
+    
+        let position = CGPoint(x: convertedFrame.origin.x + locationInView.x, y: convertedFrame.origin.y + convertedFrame.size.height)
+                
+        snapshot.frame = convertedFrame
+        reactionsView.addSubview(snapshot)
+        
+        showBackground()
+
+        var frame = vc.view.frame
+                
+        frame = CGRect(x: frame.origin.x, y: statusBarHeight, width: frame.width, height: frame.height - statusBarHeight)
         
         reactionsView.show(emojiReactionTypes: emojiReactionTypes,
                            at: position,
                            for: message,
-                           with: preferredEmojiOrder) { [weak self] type, score in
+                           with: preferredEmojiOrder, from: snapshot, in: frame) { [weak self] type, score in
             guard let self = self,
                 let emojiReactionsType = self.emojiReactionTypes[type],
                 let presenter = self.presenter,
@@ -107,5 +131,37 @@ extension ChatViewController {
             
             return isRegular || !needsToDelete
         }
+    }
+    
+    private func showBackground() {
+        guard self.backgroundWindow == nil, let reactionsView = self.reactionsView  else { return }
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.backgroundColor = .clear
+        window.windowLevel = UIWindow.Level.alert + 1
+        
+        self.backgroundWindow = window
+        self.backgroundWindow?.makeKeyAndVisible()
+        
+        vc.view.addSubview(reactionsView)
+        
+        reactionsView.makeEdgesEqualToSuperview()
+
+        self.backgroundWindow?.rootViewController = vc
+        
+        let view = UIView(frame: .zero)
+        reactionsView.insertSubview(view, at: 0)
+        view.makeEdgesEqualToSuperview()
+        
+        view.rx.tapGesture()
+            .when(.recognized)
+            .subscribe(onNext: { [weak self] _ in
+                self?.reactionsView?.dismiss()
+            })
+            .disposed(by: disposeBag)
+    }
+    
+    private func hideBackground() {
+        self.backgroundWindow?.resignKey()
+        self.backgroundWindow = nil
     }
 }
