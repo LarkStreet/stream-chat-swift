@@ -45,191 +45,6 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
         label.textAlignment = .center
         return label
     }()
-
-    private func setSelected(_ selected: Bool) {
-        var image: UIImage? = nil
-        
-        if let text = messageLabel.text, !text.messageContainsOnlyEmoji {
-            image = messageBackgroundImage()
-        }
-        
-        messageContainerView.image = selected ? nil : image
-        messageLabel.backgroundColor = selected ? .clear : style.backgroundColor
-    }
-    
-    func generatePreview() -> UIView? {
-        setSelected(true)
-        
-        defer { DispatchQueue.main.async { self.setSelected(false) } }
-        
-        let isLeftAlignment = style.alignment == .left
-        
-        let contentMessageFrame = messageStackView.frame
-        
-        var extraHeight: CGFloat = 0
-        var snapShotY: CGFloat = contentMessageFrame.origin.y + extraHeight
-        
-        let visibleSubviews = messageStackView.arrangedSubviews.filter { !$0.isHidden }
-        
-        if (visibleSubviews.first as? AttachmentPreview) == nil && visibleSubviews.first != messageContainerView {
-            extraHeight = extraHeight + (visibleSubviews.first?.frame.height ?? 0)
-            snapShotY = contentMessageFrame.origin.y + extraHeight
-        }
-        
-        var bottomExtraHeight: CGFloat = 0
-        
-        if (visibleSubviews.last as? AttachmentPreview) == nil && visibleSubviews.last != messageContainerView {
-            extraHeight = extraHeight + (visibleSubviews.last?.frame.height ?? 0)
-            bottomExtraHeight = (visibleSubviews.last?.frame.height ?? 0)
-        }
-        
-        var height = contentMessageFrame.height - extraHeight
-        
-        if avatarView.bounds.height > height {
-            height = avatarView.bounds.height
-        }
-        
-        let backgroundView = getPreviewBackgroundView()
-        
-        let snapShotFrame = CGRect(x: contentMessageFrame.origin.x, y: snapShotY,
-                                   width: contentMessageFrame.width,
-                                   height: height)
-        
-        let avatarX = isLeftAlignment ? contentView.frame.origin.x : contentMessageFrame.origin.x + contentMessageFrame.width
-        
-        let avatarSnapShotFrame = CGRect(x: avatarX,
-                                         y: avatarView.frame.origin.y,
-                                         width: CGFloat.messageTextPaddingWithAvatar,
-                                         height: height + bottomExtraHeight)
-        
-        guard let snapShotView = contentView.resizableSnapshotView(from: snapShotFrame,
-                                                                   afterScreenUpdates: true, withCapInsets: .zero),
-              let avatarSnapShotView = contentView.resizableSnapshotView(from: avatarSnapShotFrame,
-                                                                         afterScreenUpdates: true, withCapInsets: .zero) else {
-            return nil
-        }
-        
-        let previewX = isLeftAlignment ? avatarSnapShotFrame.origin.x: snapShotFrame.origin.x
-        var previewHeight = snapShotFrame.height
-        
-        if previewHeight < avatarSnapShotFrame.height {
-            previewHeight = avatarSnapShotFrame.height
-        }
-        let previewFrame = CGRect(x: previewX, y: snapShotFrame.origin.y,
-                                  width: snapShotFrame.width + avatarSnapShotFrame.width, height: previewHeight)
-        
-        let preview = UIView(frame: previewFrame)
-        preview.addSubview(backgroundView)
-        backgroundView.addSubview(snapShotView)
-        preview.addSubview(avatarSnapShotView)
-        
-        preview.clipsToBounds = true
-        
-        let backgroundViewX: CGFloat = isLeftAlignment ? avatarSnapShotView.frame.width : 0
-        let avatarViewX: CGFloat = isLeftAlignment ? 0 : snapShotView.frame.width
-        
-        backgroundView.frame = CGRect(x: backgroundViewX, y: 0,
-                                      width: snapShotView.frame.width, height: snapShotView.frame.height)
-        avatarSnapShotView.frame = CGRect(x: avatarViewX, y: avatarSnapShotView.frame.height - avatarView.frame.height,
-                                          width: avatarSnapShotView.frame.width, height: avatarSnapShotView.frame.height)
-        
-        return preview
-    }
-    
-    private func getPreviewBackgroundView() -> UIView {
-        let backgroundView = UIView()
-        backgroundView.backgroundColor = .white
-        
-        backgroundView.layer.cornerRadius = style.cornerRadius
-        backgroundView.layer.borderWidth = style.borderWidth
-        backgroundView.layer.borderColor = style.borderColor.cgColor
-        backgroundView.layer.masksToBounds = true
-        return backgroundView
-    }
-    
-    var previewView: UIView? {
-        setSelected(true)
-        
-        defer { DispatchQueue.main.async { self.setSelected(false) } }
-        
-        let isLeftAlignment = style.alignment == .left
-        
-        let contentMessageFrame = messageStackView.frame
-
-        var extraHeight: CGFloat = 0
-        var snapShotY: CGFloat = contentMessageFrame.origin.y + extraHeight
-        
-        let visibleSubviews = messageStackView.arrangedSubviews.filter { !$0.isHidden }
-        
-        if (visibleSubviews.first as? AttachmentPreview) == nil && visibleSubviews.first != messageContainerView {
-            extraHeight = extraHeight + (visibleSubviews.first?.frame.height ?? 0)
-            snapShotY = contentMessageFrame.origin.y + extraHeight
-        }
-        
-        var bottomExtraHeight: CGFloat = 0
-        
-        if (visibleSubviews.last as? AttachmentPreview) == nil && visibleSubviews.last != messageContainerView {
-            extraHeight = extraHeight + (visibleSubviews.last?.frame.height ?? 0)
-            bottomExtraHeight = (visibleSubviews.last?.frame.height ?? 0)
-        }
-            
-        var height = contentMessageFrame.height - extraHeight
-        
-        if avatarView.bounds.height > height {
-            height = avatarView.bounds.height
-        }
-        
-        let backgroundView = UIView()
-        backgroundView.backgroundColor = .white
-        
-        backgroundView.layer.cornerRadius = 12
-        backgroundView.layer.borderWidth = style.borderWidth
-        backgroundView.layer.borderColor = style.borderColor.cgColor
-        backgroundView.layer.masksToBounds = true
-    
-        let snapShotFrame = CGRect(x: contentMessageFrame.origin.x, y: snapShotY,
-                                   width: contentMessageFrame.width,
-                                   height: height)
-        
-        let avatarX = isLeftAlignment ? contentView.frame.origin.x : contentMessageFrame.origin.x + contentMessageFrame.width
-
-        let avatarSnapShotFrame = CGRect(x: avatarX,
-                                         y: avatarView.frame.origin.y,
-                                         width: CGFloat.messageTextPaddingWithAvatar,
-                                         height: height + bottomExtraHeight)
-    
-        guard let snapShotView = contentView.resizableSnapshotView(from: snapShotFrame,
-                                                                   afterScreenUpdates: true, withCapInsets: .zero),
-              let avatarSnapShotView = contentView.resizableSnapshotView(from: avatarSnapShotFrame,
-                                                                         afterScreenUpdates: true, withCapInsets: .zero) else {
-            return nil
-        }
-                
-        let previewX = isLeftAlignment ? avatarSnapShotFrame.origin.x: snapShotFrame.origin.x
-        var previewHeight = snapShotFrame.height
-        
-        if previewHeight < avatarSnapShotFrame.height {
-            previewHeight = avatarSnapShotFrame.height
-        }
-        let previewFrame = CGRect(x: previewX, y: snapShotFrame.origin.y, width: snapShotFrame.width + avatarSnapShotFrame.width, height: previewHeight)
-        
-        let preview = UIView(frame: previewFrame)
-        preview.addSubview(backgroundView)
-        backgroundView.addSubview(snapShotView)
-        preview.addSubview(avatarSnapShotView)
-
-        preview.clipsToBounds = true
-        
-        let backgroundViewX: CGFloat = isLeftAlignment ? avatarSnapShotView.frame.width : 0
-        let avatarViewX: CGFloat = isLeftAlignment ? 0 : snapShotView.frame.width
-        
-        backgroundView.frame = CGRect(x: backgroundViewX, y: 0,
-                                      width: snapShotView.frame.width, height: snapShotView.frame.height)
-        avatarSnapShotView.frame = CGRect(x: avatarViewX, y: avatarSnapShotView.frame.height - avatarView.frame.height,
-                                          width: avatarSnapShotView.frame.width, height: avatarSnapShotView.frame.height)
-        
-        return preview
-    }
     
     private(set) lazy var nameAndDateStackView: UIStackView = {
         let stackView = UIStackView(arrangedSubviews: [nameLabel, dateLabel])
@@ -677,5 +492,106 @@ extension MessageTableViewCell {
                 .offset(-(self.style.spacing.vertical + 2))
                 .constraint
         }
+    }
+    
+    func generatePreview() -> UIView? {
+        setSelected(true)
+        
+        defer { DispatchQueue.main.async { self.setSelected(false) } }
+        
+        let isLeftAlignment = style.alignment == .left
+        
+        let contentMessageFrame = messageStackView.frame
+        
+        var extraHeight: CGFloat = 0
+        var snapShotY: CGFloat = contentMessageFrame.origin.y + extraHeight
+        
+        let visibleSubviews = messageStackView.arrangedSubviews.filter { !$0.isHidden }
+        
+        if (visibleSubviews.first as? AttachmentPreview) == nil && visibleSubviews.first != messageContainerView {
+            extraHeight = extraHeight + (visibleSubviews.first?.frame.height ?? 0)
+            snapShotY = contentMessageFrame.origin.y + extraHeight
+        }
+        
+        var bottomExtraHeight: CGFloat = 0
+        
+        if (visibleSubviews.last as? AttachmentPreview) == nil && visibleSubviews.last != messageContainerView {
+            extraHeight = extraHeight + (visibleSubviews.last?.frame.height ?? 0)
+            bottomExtraHeight = (visibleSubviews.last?.frame.height ?? 0)
+        }
+        
+        var height = contentMessageFrame.height - extraHeight
+        
+        if avatarView.bounds.height > height {
+            height = avatarView.bounds.height
+        }
+        
+        let backgroundView = getPreviewBackgroundView()
+        
+        let snapShotFrame = CGRect(x: contentMessageFrame.origin.x, y: snapShotY,
+                                   width: contentMessageFrame.width,
+                                   height: height)
+        
+        let avatarX = isLeftAlignment ? contentView.frame.origin.x : contentMessageFrame.origin.x + contentMessageFrame.width
+        
+        let avatarSnapShotFrame = CGRect(x: avatarX,
+                                         y: avatarView.frame.origin.y,
+                                         width: CGFloat.messageTextPaddingWithAvatar,
+                                         height: height + bottomExtraHeight)
+        
+        guard let snapShotView = contentView.resizableSnapshotView(from: snapShotFrame,
+                                                                   afterScreenUpdates: true, withCapInsets: .zero),
+              let avatarSnapShotView = contentView.resizableSnapshotView(from: avatarSnapShotFrame,
+                                                                         afterScreenUpdates: true, withCapInsets: .zero) else {
+            return nil
+        }
+        
+        let previewX = isLeftAlignment ? avatarSnapShotFrame.origin.x: snapShotFrame.origin.x
+        var previewHeight = snapShotFrame.height
+        
+        if previewHeight < avatarSnapShotFrame.height {
+            previewHeight = avatarSnapShotFrame.height
+        }
+        let previewFrame = CGRect(x: previewX, y: snapShotFrame.origin.y,
+                                  width: snapShotFrame.width + avatarSnapShotFrame.width, height: previewHeight)
+        
+        let preview = UIView(frame: previewFrame)
+        preview.addSubview(backgroundView)
+        backgroundView.addSubview(snapShotView)
+        preview.addSubview(avatarSnapShotView)
+        
+        preview.clipsToBounds = true
+        
+        let backgroundViewX: CGFloat = isLeftAlignment ? avatarSnapShotView.frame.width : 0
+        let avatarViewX: CGFloat = isLeftAlignment ? 0 : snapShotView.frame.width
+        
+        backgroundView.frame = CGRect(x: backgroundViewX, y: 0,
+                                      width: snapShotView.frame.width, height: snapShotView.frame.height)
+        avatarSnapShotView.frame = CGRect(x: avatarViewX, y: avatarSnapShotView.frame.height - avatarView.frame.height,
+                                          width: avatarSnapShotView.frame.width, height: avatarSnapShotView.frame.height)
+        
+        return preview
+    }
+    
+    private func setSelected(_ selected: Bool) {
+        var image: UIImage? = nil
+        
+        if let text = messageLabel.text, !text.messageContainsOnlyEmoji {
+            image = messageBackgroundImage()
+        }
+        
+        messageContainerView.image = selected ? nil : image
+        messageLabel.backgroundColor = selected ? .clear : style.backgroundColor
+    }
+    
+    private func getPreviewBackgroundView() -> UIView {
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = .white
+        
+        backgroundView.layer.cornerRadius = style.cornerRadius
+        backgroundView.layer.borderWidth = style.borderWidth
+        backgroundView.layer.borderColor = style.borderColor.cgColor
+        backgroundView.layer.masksToBounds = true
+        return backgroundView
     }
 }

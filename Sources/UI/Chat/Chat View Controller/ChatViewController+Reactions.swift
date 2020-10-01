@@ -80,9 +80,8 @@ extension ChatViewController {
   
         self.reactionsView = reactionsView
         
-        guard let messageCell = cell as? MessageTableViewCell, let snapshot = messageCell.previewView else {
-            return
-        }
+        guard let messageCell = cell as? MessageTableViewCell,
+              let snapshot = messageCell.generatePreview() else { return }
         
         var statusBarHeight: CGFloat = 0
         
