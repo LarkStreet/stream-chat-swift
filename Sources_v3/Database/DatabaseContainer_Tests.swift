@@ -110,6 +110,49 @@ class DatabaseContainer_Tests: StressTestCase {
         // Wait for the new DB instance to be released
         AssertAsync.canBeReleased(&newDatabase)
     }
+    
+    func test_databaseContainer_flushes_on_start() throws {
+        // Create a new on-disc database with the test data model
+        let dbURL = URL.newTemporaryFileURL()
+        var database: DatabaseContainerMock? = try DatabaseContainerMock(
+            kind: .onDisk(databaseFileURL: dbURL),
+            modelName: "TestDataModel",
+            bundle: Bundle(for: DatabaseContainer_Tests.self)
+        )
+        
+        // Insert a new object
+        try database!.writeSynchronously {
+            _ = TestManagedObject(context: $0 as! NSManagedObjectContext)
+        }
+        
+        // Assert object is saved
+        var testObject = try database!.viewContext.fetch(NSFetchRequest<TestManagedObject>(entityName: "TestManagedObject")).first
+        XCTAssertNotNil(testObject)
+                
+        // Create a new database with the same underlying SQLite store and shouldFlushOnStart config
+        database = try DatabaseContainerMock(
+            kind: .onDisk(databaseFileURL: dbURL),
+            shouldFlushOnStart: true,
+            modelName: "TestDataModel",
+            bundle: Bundle(for: DatabaseContainer_Tests.self)
+        )
+                
+        testObject = try database!.viewContext.fetch(NSFetchRequest<TestManagedObject>(entityName: "TestManagedObject")).first
+        XCTAssertNil(testObject)
+    }
+    
+    func test_databaseContainer_skipping_flush_for_inMemory_type() throws {
+        // Create a new in-memory database that should flush on start.
+        let database: DatabaseContainerMock? = try DatabaseContainerMock(
+            kind: .inMemory,
+            shouldFlushOnStart: true,
+            modelName: "TestDataModel",
+            bundle: Bundle(for: DatabaseContainer_Tests.self)
+        )
+        
+        // Assert recreatePersistentStore is not called for in-memory DB.
+        XCTAssertFalse(database!.recreatePersistentStore_called)
+    }
 }
 
 extension TestManagedObject: EphemeralValuesContainer {

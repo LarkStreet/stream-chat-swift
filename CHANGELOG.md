@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔄 Changed
 
+# [2.3.3](https://github.com/GetStream/stream-chat-swift/releases/tag/2.3.3)
+_September 25, 2020_
+
+### ✅ Added
+- `enableSlowMode` and `disableSlowMode` for channels, see [docs](https://getstream.io/chat/docs/slow_mode/?language=swift) [#514](https://github.com/GetStream/stream-chat-swift/issues/514)
+
+### 🐞 Fixed
+- Channel mute response is not parsed correctly and a parsing error is logged [#499](https://github.com/GetStream/stream-chat-swift/issues/499)
+- New version warning is displayed for 3.0, we're building 3.0 as a new SDK so 2.x versions shouldn't warn about 3.x versions [#515](https://github.com/GetStream/stream-chat-swift/issues/515)
+
 # [2.3.2](https://github.com/GetStream/stream-chat-swift/releases/tag/2.3.2)
 _September 04, 2020_
 

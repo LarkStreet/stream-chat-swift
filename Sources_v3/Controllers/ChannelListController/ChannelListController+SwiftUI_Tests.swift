@@ -14,12 +14,6 @@ class ChannelListController_SwiftUI_Tests: iOS13TestCase {
         channelListController = ChannelListControllerMock()
     }
     
-    func test_startUpdatingIsCalled_whenObservableObjectCreated() {
-        assert(channelListController.startUpdating_called == false)
-        _ = channelListController.observableObject
-        XCTAssertTrue(channelListController.startUpdating_called)
-    }
-    
     func test_controllerInitialValuesAreLoaded() {
         channelListController.state_simulated = .localDataFetched
         channelListController.channels_simulated = [.init(cid: .unique, extraData: .defaultValue)]
@@ -34,7 +28,7 @@ class ChannelListController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = channelListController.observableObject
         
         // Simulate channel change
-        let newChannel: Channel = .init(cid: .unique, extraData: .defaultValue)
+        let newChannel: ChatChannel = .init(cid: .unique, extraData: .defaultValue)
         channelListController.channels_simulated = [newChannel]
         channelListController.delegateCallback {
             $0.controller(
@@ -50,7 +44,7 @@ class ChannelListController_SwiftUI_Tests: iOS13TestCase {
         let observableObject = channelListController.observableObject
         
         // Simulate state change
-        let newState: Controller.State = .remoteDataFetchFailed(ClientError(with: TestError()))
+        let newState: DataController.State = .remoteDataFetchFailed(ClientError(with: TestError()))
         channelListController.state_simulated = newState
         channelListController.delegateCallback {
             $0.controller(
@@ -63,16 +57,16 @@ class ChannelListController_SwiftUI_Tests: iOS13TestCase {
     }
 }
 
-class ChannelListControllerMock: ChannelListController {
-    @Atomic var startUpdating_called = false
+class ChannelListControllerMock: ChatChannelListController {
+    @Atomic var synchronize_called = false
     
-    var channels_simulated: [ChannelModel<DefaultDataTypes>]?
-    override var channels: [ChannelModel<DefaultDataTypes>] {
+    var channels_simulated: [_ChatChannel<DefaultExtraData>]?
+    override var channels: [_ChatChannel<DefaultExtraData>] {
         channels_simulated ?? super.channels
     }
 
-    var state_simulated: Controller.State?
-    override var state: Controller.State {
+    var state_simulated: DataController.State?
+    override var state: DataController.State {
         get { state_simulated ?? super.state }
         set { super.state = newValue }
     }
@@ -81,7 +75,7 @@ class ChannelListControllerMock: ChannelListController {
         super.init(query: .init(filter: .none), client: .mock)
     }
 
-    override func startUpdating(_ completion: ((Error?) -> Void)? = nil) {
-        startUpdating_called = true
+    override func synchronize(_ completion: ((Error?) -> Void)? = nil) {
+        synchronize_called = true
     }
 }

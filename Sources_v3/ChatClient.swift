@@ -5,8 +5,10 @@
 import CoreData
 import Foundation
 
-/// If you want to use your custom extra data types to extend `UserModel`, `MessageModel`, or `ChannelModel`,
-/// you can use this protocol to set up `Client` with it.
+/// A protocol defining extra data types used by `ChatClient`.
+///
+/// You can add additional (extra) data to entities in the chat system. For now, you can add extra data to `ChatUser`,
+/// `ChatChannel`, and `ChatMessage`.
 ///
 /// Example usage:
 /// ```
@@ -18,56 +20,83 @@ import Foundation
 ///   let client = Client<CustomDataTypes>(currentUser: user, config: config)
 /// ```
 ///
-/// Additionally, you can introduce the following type aliases in your module to make the work with generic
-/// models more convenient:
-/// ```
-///  typealias Channel = ChannelModel<CustomDataTypes>
-///  typealias Message = MessageModel<CustomDataTypes>
-/// ```
-///
 public protocol ExtraDataTypes {
+    /// An extra data type for `ChatUser`.
     associatedtype User: UserExtraData = NameAndImageExtraData
+    
+    /// An extra data type for `ChatMessage`.
     associatedtype Message: MessageExtraData = NoExtraData
+    
+    /// An extra data type for `ChatChannel`.
     associatedtype Channel: ChannelExtraData = NameAndImageExtraData
 }
 
-/// A concrete implementation of `ExtraDataTypes` with the default values.
-public struct DefaultDataTypes: ExtraDataTypes {}
-
-/// A convenience typealias for `Client` with the default data types.
-public typealias ChatClient = Client<DefaultDataTypes>
+/// A concrete implementation of `ExtraDataTypes` with the default extra data type values.
+///
+/// `ChatUser` extra data type: `NameAndImageExtraData`
+///
+/// `ChatMessage` extra data type: `NoExtraData`
+///
+/// `ChatChannel` extra data type: `NameAndImageExtraData`
+///
+public struct DefaultExtraData: ExtraDataTypes {}
 
 /// The root object representing a Stream Chat.
 ///
-/// If you don't need to specify your custom extra data types for `User`, `Channel`, or `Message`, use the convenient non-generic
-/// typealias `ChatClient` which specifies the default extra data types.
-public class Client<ExtraData: ExtraDataTypes> {
-    /// The id of the currently logged in user.
+/// Typically, an app contains just one instance of `ChatClient`. However, it's possible to have multiple instances if your use
+/// case requires it (i.e. more than one window with different workspaces in a Slack-like app).
+///
+/// - Note: `ChatClient` is a typealias of `_ChatClient` with the default extra data types. If you want to use your custom extra
+/// data types, you should create your own `ChatClient` typealias for `_ChatClient`. Learn more about using custom extra data in our
+/// [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#working-with-extra-data).
+///
+public typealias ChatClient = _ChatClient<DefaultExtraData>
+
+/// The root object representing a Stream Chat.
+///
+/// Typically, an app contains just one instance of `ChatClient`. However, it's possible to have multiple instances if your use
+/// case requires it (i.e. more than one window with different workspaces in a Slack-like app).
+///
+/// - Note: `_ChatClient` type is not meant to be used directly. If you don't use custom extra data types, use `ChatClient`
+/// typealis instead. When using custom extra data types, you should create your own `ChatClient` typealias for `_ChatClient`.
+/// Learn more about using custom extra data in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#working-with-extra-data).
+///
+public class _ChatClient<ExtraData: ExtraDataTypes> {
+    /// The `UserId` of the currently logged in user.
     @Atomic public var currentUserId: UserId = .anonymous
     
     /// The current connection status of the client.
+    ///
+    /// To observe changes in the connection status, create an instance of `CurrentChatUserController`, and use it to receive
+    /// callbacks when the connection status changes.
+    ///
     public var connectionStatus: ConnectionStatus {
         ConnectionStatus(webSocketConnectionState: webSocketClient.connectionState)
     }
     
-    /// The config object of the `Client` instance. This can't be mutated and can only be set when initializing a `Client` instance.
+    /// The config object of the `ChatClient` instance.
+    ///
+    /// This value can't be mutated and can only be set when initializing a new `ChatClient` instance.
+    ///
     public let config: ChatClientConfig
     
-    /// A `Worker` represents a single atomic piece of functionality.`Client` initializes a set of background workers that keep
-    /// observing the current state of the system and perform work if needed (i.e. when a new message pending sent appears in the
-    /// database, a worker tries to send it.)
+    /// A `Worker` represents a single atomic piece of functionality.
+    ///
+    /// `ChatClient` initializes a set of background workers that keep observing the current state of the system and perform
+    /// work if needed (i.e. when a new message pending sent appears in the database, a worker tries to send it.)
     private(set) var backgroundWorkers: [Worker]!
     
     /// Builder blocks used for creating `backgroundWorker`s when needed.
     private let workerBuilders: [WorkerBuilder]
-            
+
     /// The notification center used to send and receive notifications about incoming events.
     private(set) lazy var eventNotificationCenter = environment.notificationCenterBuilder([
         EventDataProcessorMiddleware<ExtraData>(database: databaseContainer),
         TypingStartCleanupMiddleware<ExtraData>(
             excludedUserIds: { [weak self] in Set([self?.currentUserId].compactMap { $0 }) }
         ),
-        ChannelReadUpdaterMiddleware<ExtraData>(database: databaseContainer)
+        ChannelReadUpdaterMiddleware<ExtraData>(database: databaseContainer),
+        ChannelMemberTypingStateUpdaterMiddleware<ExtraData>(database: databaseContainer)
     ])
     
     /// The `APIClient` instance `Client` uses to communicate with Stream REST API.
@@ -123,20 +152,22 @@ public class Client<ExtraData: ExtraDataTypes> {
                 )
                 
                 let dbFileURL = config.localStorageFolderURL!.appendingPathComponent(config.apiKey.apiKeyString)
-                return try environment.databaseContainerBuilder(.onDisk(databaseFileURL: dbFileURL))
+                return try environment.databaseContainerBuilder(
+                    .onDisk(databaseFileURL: dbFileURL), config.shouldFlushLocalStorageOnStart
+                )
             }
             
         } catch is ClientError.MissingLocalStorageURL {
-            log.assert(false, "The URL provided in ChatClientConfig can't be `nil`. Falling back to the in-memory option.")
+            log.assertationFailure("The URL provided in ChatClientConfig can't be `nil`. Falling back to the in-memory option.")
             
         } catch {
             log.error("Failed to initalized the local storage with error: \(error). Falling back to the in-memory option.")
         }
         
         do {
-            return try environment.databaseContainerBuilder(.inMemory)
+            return try environment.databaseContainerBuilder(.inMemory, config.shouldFlushLocalStorageOnStart)
         } catch {
-            fatalError("Failed to initialize the in-memory storage with erorr: \(error). This is a non-recoverable error.")
+            fatalError("Failed to initialize the in-memory storage with error: \(error). This is a non-recoverable error.")
         }
     }()
     
@@ -171,10 +202,10 @@ public class Client<ExtraData: ExtraDataTypes> {
     /// The token of the current user. If the current user is anonymous, the token is `nil`.
     @Atomic var currentToken: Token?
     
-    /// Creates a new instance of Stream Chat `Client`.
+    /// Creates a new instance of `ChatClient`.
     ///
-    /// - Parameters:
-    ///   - config: The config object for the `Client`. See `ChatClientConfig` for all configuration options.
+    /// - Parameter config: The config object for the `Client`. See `ChatClientConfig` for all configuration options.
+    ///
     public convenience init(config: ChatClientConfig) {
         // All production workers
         let workerBuilders: [WorkerBuilder] = [
@@ -199,6 +230,7 @@ public class Client<ExtraData: ExtraDataTypes> {
     ///   - workerBuilders: An array of worker builders the `Client` instance will instantiate and run in the background
     ///   for the whole duration of its lifetime.
     ///   - environment: An object with all external dependencies the new `Client` instance should use.
+    ///
     init(
         config: ChatClientConfig,
         workerBuilders: [WorkerBuilder],
@@ -237,7 +269,7 @@ public class Client<ExtraData: ExtraDataTypes> {
     }
 }
 
-extension Client {
+extension _ChatClient {
     /// An object containing all dependencies of `Client`
     struct Environment {
         var apiClientBuilder: (
@@ -264,8 +296,8 @@ extension Client {
             )
         }
         
-        var databaseContainerBuilder: (_ kind: DatabaseContainer.Kind) throws -> DatabaseContainer = {
-            try DatabaseContainer(kind: $0)
+        var databaseContainerBuilder: (_ kind: DatabaseContainer.Kind, _ shouldFlushOnStart: Bool) throws -> DatabaseContainer = {
+            try DatabaseContainer(kind: $0, shouldFlushOnStart: $1)
         }
         
         var requestEncoderBuilder: (_ baseURL: URL, _ apiKey: APIKey) -> RequestEncoder = DefaultRequestEncoder.init
@@ -280,7 +312,6 @@ extension Client {
 }
 
 extension ClientError {
-    // An example of a simple error
     public class MissingLocalStorageURL: ClientError {
         override public var localizedDescription: String { "The URL provided in ChatClientConfig is `nil`." }
     }
@@ -296,7 +327,7 @@ extension ClientError {
 
 /// `APIClient` listens for `WebSocketClient` connection updates so it can forward the current connection id to
 /// its `RequestEncoder`.
-extension Client: ConnectionStateDelegate {
+extension _ChatClient: ConnectionStateDelegate {
     func webSocketClient(_ client: WebSocketClient, didUpdateConectionState state: WebSocketConnectionState) {
         if case let .connected(connectionId) = state {
             self.connectionId = connectionId
@@ -309,7 +340,7 @@ extension Client: ConnectionStateDelegate {
 }
 
 /// `Client` provides connection details for the `RequestEncoder`s it creates.
-extension Client: ConnectionDetailsProviderDelegate {
+extension _ChatClient: ConnectionDetailsProviderDelegate {
     func provideToken() -> Token? {
         currentToken
     }

@@ -12,7 +12,7 @@ import UIKit
 /// A `UITableViewController` subclass that displays and manages the list of channels.  It uses the `ChannelListController`  class to make calls to the Stream Chat API
 /// and listens to events by conforming to `ChannelListControllerDelegate`.
 ///
-class SimpleChannelsViewController: UITableViewController, ChannelListControllerDelegate {
+class SimpleChannelsViewController: UITableViewController, ChatChannelListControllerDelegate {
     // MARK: - Properties
     
     ///
@@ -20,21 +20,30 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
     ///
     ///  The property below holds the `ChannelListController` object.  It is used to make calls to the Stream Chat API and to listen to the events related to the channels list.
     ///  After it is set, `channelController.delegate` needs to receive a reference to a `ChannelListControllerDelegate`, which, in this case, is `self`. After the
-    ///  delegate is set,`channelListController.startUpdating()` must be called to start listening to events related to the channel list. Additionally,
+    ///  delegate is set,`channelListController.synchronize()` must be called to start listening to events related to the channel list. Additionally,
     ///  `channelListController.client` holds a reference to the `ChatClient` which created this instance. It can be used to create other controllers.
     ///
-    var channelListController: ChannelListController! {
+    var channelListController: ChatChannelListController! {
         didSet {
             channelListController.delegate = self
-            channelListController.startUpdating()
+            channelListController.synchronize()
         }
+    }
+    
+    ///
+    /// # chatClient
+    ///
+    ///  Exposes the `ChatClient` from `channelListController` for ease of access.
+    ///
+    var chatClient: ChatClient {
+        channelListController.client
     }
     
     // MARK: - ChannelControllerDelegate
 
     ///
     /// The methods below are part of the `ChannelListControllerDelegate` protocol and will be called when events happen in the channel list. In order for these updates to
-    /// happen, `channelController.delegate` must be equal `self` and `channelController.startUpdating()` must be called.
+    /// happen, `channelController.delegate` must be equal `self` and `channelController.synchronize()` must be called.
     ///
     
     ///
@@ -43,8 +52,8 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
     /// The method below receives the `changes` that happen in the list of messages and updates the `UITableView` accordingly.
     ///
     func controller(
-        _ controller: ChannelListControllerGeneric<DefaultDataTypes>,
-        didChangeChannels changes: [ListChange<Channel>]
+        _ controller: ChatChannelListController,
+        didChangeChannels changes: [ListChange<ChatChannel>]
     ) {
         tableView.beginUpdates()
         
@@ -90,14 +99,16 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
         let channel = channelListController.channels[indexPath.row]
         
         let subtitle: String
-        if let latestMessage = channel.latestMessages.first {
+        if let typingMembersInfo = createTypingMemberString(for: channel) {
+            subtitle = typingMembersInfo
+        } else if let latestMessage = channel.latestMessages.first {
             let author = latestMessage.author.name ?? latestMessage.author.id.description
             subtitle = "\(author): \(latestMessage.text)"
         } else {
             subtitle = "No messages"
         }
         
-        return cellWithChannelName(
+        return channelCellWithName(
             channel.extraData.name ?? channel.cid.description,
             subtitle: subtitle,
             unreadCount: channel.unreadCount.messages
@@ -137,7 +148,7 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
         switch editingStyle {
         case .delete:
             let channelId = channelListController.channels[indexPath.row].cid
-            channelListController.client.channelController(for: channelId).deleteChannel()
+            chatClient.channelController(for: channelId).deleteChannel()
         default:
             return
         }
@@ -163,23 +174,23 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
             return
         }
         
-        settingsViewController.currentUserController = channelListController.client.currentUserController()
+        settingsViewController.currentUserController = chatClient.currentUserController()
         present(navigationViewController, animated: true)
     }
 
     ///
     /// # handleAddChannelButton
     ///
-    /// The method below is called when the user taps the add channel button. It creates the channel by calling `client.channelController(createChannelWithId: ...)`
+    /// The method below is called when the user taps the add channel button. It creates the channel by calling `chatClient.channelController(createChannelWithId: ...)`
     ///
     @objc func handleAddChannelButton(_ sender: Any) {
         let id = UUID().uuidString
-        let controller = channelListController.client.channelController(
+        let controller = chatClient.channelController(
             createChannelWithId: .init(type: .messaging, id: id),
-            members: [channelListController.client.currentUserId],
+            members: [chatClient.currentUserId],
             extraData: .init(name: "Channel" + id.prefix(4), imageURL: nil)
         )
-        controller.startUpdating()
+        controller.synchronize()
     }
     
     ///
@@ -197,7 +208,7 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
         }
 
         let channelId = channelListController.channels[indexPath.row].cid
-        let channelController = channelListController.client.channelController(for: channelId)
+        let channelController = chatClient.channelController(for: channelId)
 
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         let actions = [
@@ -240,7 +251,7 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
                 let controller = (segue.destination as! UINavigationController).topViewController as! SimpleChatViewController
                 
                 /// pass down reference to `ChannelController`.
-                controller.channelController = channelListController.client.channelController(for: channel.cid)
+                controller.channelController = chatClient.channelController(for: channel.cid)
                 
                 controller.navigationItem.leftBarButtonItem = splitViewController?.displayModeButtonItem
                 controller.navigationItem.leftItemsSupplementBackButton = true
@@ -297,29 +308,3 @@ class SimpleChannelsViewController: UITableViewController, ChannelListController
 }
 
 // MARK: - Private
-
-private extension SimpleChannelsViewController {
-    func cellWithChannelName(_ channelName: String?, subtitle: String, unreadCount: Int) -> UITableViewCell {
-        let cell: UITableViewCell
-        if let _cell = tableView.dequeueReusableCell(withIdentifier: "Cell") {
-            cell = _cell
-        } else {
-            cell = UITableViewCell(style: .subtitle, reuseIdentifier: "Cell")
-        }
-        
-        cell.textLabel?.text = channelName
-        cell.detailTextLabel?.text = subtitle
-        
-        if unreadCount > 0 {
-            // set channel name font to bold
-            cell.textLabel?.font = UIFont.boldSystemFont(ofSize: cell.textLabel?.font.pointSize ?? UIFont.labelFontSize)
-            
-            // set accessory view to number of unread messages
-            let unreadLabel = UILabel()
-            unreadLabel.text = "\(unreadCount)"
-            cell.accessoryView = unreadLabel
-        }
-        
-        return cell
-    }
-}

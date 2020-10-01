@@ -6,7 +6,7 @@
 import XCTest
 
 class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
-    var middleware: ChannelReadUpdaterMiddleware<DefaultDataTypes>!
+    var middleware: ChannelReadUpdaterMiddleware<DefaultExtraData>!
     fileprivate var database: DatabaseContainerMock!
     
     override func setUp() {
@@ -28,8 +28,8 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         }
         
         // Load the channel from the db and check the if fields are correct
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         XCTAssertEqual(loadedChannel?.reads.first?.unreadMessagesCount, 10)
@@ -39,14 +39,14 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         // with a read date later than original read
         let newReadDate = Date(timeIntervalSince1970: 2)
         // Create EventPayload for MessageReadEvent
-        let eventPayload = EventPayload<DefaultDataTypes>(
+        let eventPayload = EventPayload<DefaultExtraData>(
             eventType: .messageRead,
             cid: channelId,
             user: dummyCurrentUser,
             unreadCount: .noUnread,
             createdAt: newReadDate
         )
-        let messageReadEvent = try MessageReadEvent<DefaultDataTypes>(from: eventPayload)
+        let messageReadEvent = try MessageReadEvent<DefaultExtraData>(from: eventPayload)
         
         // Let the middleware handle the event
         // Middleware should mutate the loadedChannel's read
@@ -74,8 +74,8 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         }
 
         // Load the channel from the db and check the if fields are correct
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         XCTAssertEqual(loadedChannel?.reads.first?.unreadMessagesCount, 10)
@@ -85,7 +85,7 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         // with a read date later than original read
         let newReadDate = Date(timeIntervalSince1970: 2)
         // Unfortunately, ChannelDetailPayload is needed for NotificationMarkReadEvent...
-        let channelDetailPayload = ChannelDetailPayload<DefaultDataTypes>(
+        let channelDetailPayload = ChannelDetailPayload<DefaultExtraData>(
             cid: channelId,
             extraData: lukeExtraData,
             typeRawValue: "",
@@ -101,14 +101,14 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
             members: nil
         )
         // Create EventPayload for NotificationMarkReadEvent
-        let eventPayload = EventPayload<DefaultDataTypes>(
+        let eventPayload = EventPayload<DefaultExtraData>(
             eventType: .notificationMarkRead,
             user: dummyCurrentUser,
             channel: channelDetailPayload,
             unreadCount: .noUnread,
             createdAt: newReadDate
         )
-        let notificationMarkReadEvent = try NotificationMarkReadEvent<DefaultDataTypes>(from: eventPayload)
+        let notificationMarkReadEvent = try NotificationMarkReadEvent<DefaultExtraData>(from: eventPayload)
         
         // Let the middleware handle the event
         let handledEvent = try await { middleware.handle(event: notificationMarkReadEvent, completion: $0) }
@@ -135,8 +135,8 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         }
         
         // Load the channel from the db and check the if fields are correct
-        var loadedChannel: ChannelModel<DefaultDataTypes>? {
-            database.viewContext.loadChannel(cid: channelId)
+        var loadedChannel: _ChatChannel<DefaultExtraData>? {
+            database.viewContext.channel(cid: channelId)?.asModel()
         }
         
         // Assert that the read event entity is updated
@@ -147,7 +147,7 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         // with a read date later than original read
         let newReadDate = Date(timeIntervalSince1970: 2)
         // Create EventPayload for NotificationMarkAllReadEvent
-        let eventPayload = EventPayload<DefaultDataTypes>(
+        let eventPayload = EventPayload<DefaultExtraData>(
             eventType: .notificationMarkRead,
             user: dummyCurrentUser,
             createdAt: newReadDate
@@ -163,6 +163,42 @@ class ChannelReadUpdaterMiddleware_Tests: XCTestCase {
         AssertAsync {
             Assert.willBeEqual(loadedChannel?.reads.first?.unreadMessagesCount, 0)
             Assert.willBeEqual(loadedChannel?.reads.first?.lastReadAt, newReadDate)
+        }
+    }
+    
+    func test_unhandledEvents_areForwarded() throws {
+        // Save a channel with a channel read
+        let channelId = ChannelId.unique
+        let payload = dummyPayload(with: channelId)
+        
+        assert(payload.channelReads.count == 1)
+        
+        // Save dummy payload to database
+        try database.writeSynchronously { (session) in
+            try session.saveChannel(payload: payload)
+        }
+        
+        // Load the channel from the db and check the if fields are correct
+        var loadedChannel: ChatChannel? {
+            database.viewContext.channel(cid: channelId)?.asModel()
+        }
+        
+        // Assert that the read event entity is updated
+        XCTAssertEqual(loadedChannel?.reads.first?.unreadMessagesCount, 10)
+        XCTAssertEqual(loadedChannel?.reads.first?.lastReadAt, Date(timeIntervalSince1970: 1))
+        
+        // Create an event that won't be handled by this middleware
+        let startTypingEvent = TypingEvent(isTyping: true, cid: channelId, userId: payload.members.first!.user.id)
+        
+        // Let the middleware handle the event
+        let handledEvent = try await { middleware.handle(event: startTypingEvent, completion: $0) }
+        
+        XCTAssertEqual(handledEvent?.asEquatable, startTypingEvent.asEquatable)
+        
+        // Assert that the read event entity is not updated
+        AssertAsync {
+            Assert.staysEqual(loadedChannel?.reads.first?.unreadMessagesCount, payload.channelReads.first?.unreadMessagesCount)
+            Assert.staysEqual(loadedChannel?.reads.first?.lastReadAt, payload.channelReads.first?.lastReadAt)
         }
     }
 }

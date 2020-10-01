@@ -27,7 +27,7 @@ extension ChatClient {
     }
 }
 
-extension Client.Environment where ExtraData == DefaultDataTypes {
+extension _ChatClient.Environment where ExtraData == DefaultExtraData {
     static var mock: ChatClient.Environment {
         .init(
             apiClientBuilder: APIClientMock.init,
@@ -41,7 +41,7 @@ extension Client.Environment where ExtraData == DefaultDataTypes {
                     internetConnection: $5
                 )
             },
-            databaseContainerBuilder: { try! DatabaseContainerMock(kind: $0) },
+            databaseContainerBuilder: { try! DatabaseContainerMock(kind: $0, shouldFlushOnStart: $1) },
             requestEncoderBuilder: DefaultRequestEncoder.init,
             requestDecoderBuilder: DefaultRequestDecoder.init,
             eventDecoderBuilder: EventDecoder.init,

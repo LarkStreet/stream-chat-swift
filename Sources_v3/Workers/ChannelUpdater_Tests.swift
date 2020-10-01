@@ -6,7 +6,7 @@
 import XCTest
 
 class ChannelUpdater_Tests: StressTestCase {
-    typealias ExtraData = DefaultDataTypes
+    typealias ExtraData = DefaultExtraData
     
     var webSocketClient: WebSocketClientMock!
     var apiClient: APIClientMock!
@@ -56,8 +56,8 @@ class ChannelUpdater_Tests: StressTestCase {
         apiClient.test_simulateResponse(.success(payload))
         
         // Assert the data is stored in the DB
-        var channel: Channel? {
-            database.viewContext.loadChannel(cid: cid)
+        var channel: ChatChannel? {
+            database.viewContext.channel(cid: cid)?.asModel()
         }
         AssertAsync {
             Assert.willBeTrue(channel != nil)
@@ -84,8 +84,8 @@ class ChannelUpdater_Tests: StressTestCase {
         let query = ChannelQuery(channelPayload: .unique)
         var cid: ChannelId = .unique
 
-        var channel: Channel? {
-            database.viewContext.loadChannel(cid: cid)
+        var channel: ChatChannel? {
+            database.viewContext.channel(cid: cid)?.asModel()
         }
 
         let callback: (ChannelId) -> Void = {
@@ -133,7 +133,7 @@ class ChannelUpdater_Tests: StressTestCase {
         let arguments: String = .unique
         let parentMessageId: MessageId = .unique
         let showReplyInChannel = true
-        let extraData: DefaultDataTypes.Message = .defaultValue
+        let extraData: DefaultExtraData.Message = .defaultValue
         
         // Create new message
         let newMesageId: MessageId = try await { completion in
@@ -154,7 +154,7 @@ class ChannelUpdater_Tests: StressTestCase {
             }
         }
         
-        var message: Message? {
+        var message: ChatMessage? {
             database.viewContext.message(id: newMesageId)?.asModel()
         }
         
@@ -209,7 +209,7 @@ class ChannelUpdater_Tests: StressTestCase {
     // MARK: - Update channel
 
     func test_updateChannel_makesCorrectAPICall() {
-        let channelPayload: ChannelEditDetailPayload<DefaultDataTypes> = .unique
+        let channelPayload: ChannelEditDetailPayload<DefaultExtraData> = .unique
 
         // Simulate `updateChannel(channelPayload:, completion:)` call
         channelUpdater.updateChannel(channelPayload: channelPayload)

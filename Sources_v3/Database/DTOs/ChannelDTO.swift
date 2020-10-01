@@ -7,8 +7,6 @@ import Foundation
 
 @objc(ChannelDTO)
 class ChannelDTO: NSManagedObject {
-    static let entityName = "ChannelDTO"
-    
     @NSManaged var cid: String
     @NSManaged var typeRawValue: String
     @NSManaged var extraData: Data
@@ -20,6 +18,9 @@ class ChannelDTO: NSManagedObject {
     @NSManaged var updatedAt: Date
     @NSManaged var lastMessageAt: Date?
     
+    @NSManaged var watcherCount: Int16
+    @NSManaged var memberCount: Int16
+    
     @NSManaged var isFrozen: Bool
     
     // MARK: - Relationships
@@ -27,6 +28,7 @@ class ChannelDTO: NSManagedObject {
     @NSManaged var createdBy: UserDTO
     @NSManaged var team: TeamDTO?
     @NSManaged var members: Set<MemberDTO>
+    @NSManaged var currentlyTypingMembers: Set<MemberDTO>
     @NSManaged var messages: Set<MessageDTO>
     @NSManaged var reads: Set<ChannelReadDTO>
     
@@ -60,6 +62,14 @@ class ChannelDTO: NSManagedObject {
     }
 }
 
+// MARK: - EphemeralValuesContainer
+
+extension ChannelDTO: EphemeralValuesContainer {
+    func resetEphemeralValues() {
+        currentlyTypingMembers.removeAll()
+    }
+}
+
 // MARK: Saving and loading the data
 
 extension NSManagedObjectContext {
@@ -76,6 +86,7 @@ extension NSManagedObjectContext {
         dto.updatedAt = payload.updatedAt
         dto.defaultSortingAt = payload.lastMessageAt ?? payload.createdAt
         dto.lastMessageAt = payload.lastMessageAt
+        dto.memberCount = Int16(payload.memberCount)
         
         dto.isFrozen = payload.isFrozen
         
@@ -115,11 +126,13 @@ extension NSManagedObjectContext {
             dto.members.insert(member)
         }
         
+        dto.watcherCount = Int16(payload.watcherCount ?? 0)
+        
         return dto
     }
     
-    func loadChannel<ExtraData: ExtraDataTypes>(cid: ChannelId) -> ChannelModel<ExtraData>? {
-        ChannelDTO.load(cid: cid, context: self).map(ChannelModel.create(fromDTO:))
+    func channel(cid: ChannelId) -> ChannelDTO? {
+        ChannelDTO.load(cid: cid, context: self)
     }
 }
 
@@ -148,11 +161,17 @@ extension ChannelDTO {
     }
 }
 
-extension ChannelModel {
+extension ChannelDTO {
+    /// Snapshots the current state of `ChannelDTO` and returns an immutable model object from it.
+    func asModel<ExtraData: ExtraDataTypes>() -> _ChatChannel<ExtraData> { .create(fromDTO: self) }
+}
+
+extension _ChatChannel {
     /// Create a ChannelModel struct from its DTO
-    static func create(fromDTO dto: ChannelDTO) -> ChannelModel {
-        let members = dto.members.map { MemberModel<ExtraData.User>.create(fromDTO: $0) }
-        
+    fileprivate static func create(fromDTO dto: ChannelDTO) -> _ChatChannel {
+        let members: [_ChatChannelMember<ExtraData.User>] = dto.members.map { $0.asModel() }
+        let typingMembers: [_ChatChannelMember<ExtraData.User>] = dto.currentlyTypingMembers.map { $0.asModel() }
+
         // It's safe to use `try!` here, because the extra data payload comes from the DB, so we know it must
         // be a valid JSON payload, otherwise it wouldn't be possible to save it there.
         let extraData = try! JSONDecoder.default.decode(ExtraData.Channel.self, from: dto.extraData)
@@ -161,11 +180,11 @@ extension ChannelModel {
         let context = dto.managedObjectContext!
         
         // TODO: make messagesLimit a param
-        let latestMessages: [MessageModel<ExtraData>] = MessageDTO
+        let latestMessages: [_ChatMessage<ExtraData>] = MessageDTO
             .load(for: dto.cid, limit: 25, context: context)
             .map { $0.asModel() }
         
-        let reads: [ChannelReadModel<ExtraData>] = dto.reads.map { $0.asModel() }
+        let reads: [_ChatChannelRead<ExtraData>] = dto.reads.map { $0.asModel() }
         
         var unreadCount = ChannelUnreadCount.noUnread
         if let currentUser = context.currentUser(),
@@ -186,7 +205,7 @@ extension ChannelModel {
             )
         }
         
-        return ChannelModel(
+        return _ChatChannel(
             cid: cid,
             lastMessageAt: dto.lastMessageAt,
             createdAt: dto.createdAt,
@@ -196,15 +215,16 @@ extension ChannelModel {
             config: try! JSONDecoder().decode(ChannelConfig.self, from: dto.config),
             isFrozen: dto.isFrozen,
             members: Set(members),
+            currentlyTypingMembers: Set(typingMembers),
             watchers: [],
-            team: "",
+//            team: "",
             unreadCount: unreadCount,
-            watcherCount: 0,
-            banEnabling: .disabled,
-            isWatched: true,
+            watcherCount: Int(dto.watcherCount),
+            memberCount: Int(dto.memberCount),
+//            banEnabling: .disabled,
             reads: reads,
             extraData: extraData,
-            invitedMembers: [],
+//            invitedMembers: [],
             latestMessages: latestMessages
         )
     }

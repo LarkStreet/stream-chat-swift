@@ -25,15 +25,9 @@ class MessageController_Combine_Tests: iOS13TestCase {
         super.tearDown()
     }
     
-    func test_startUpdatingIsCalled_whenPublisherIsAccessed() {
-        assert(messageController.startUpdating_called == false)
-        _ = messageController.statePublisher
-        XCTAssertTrue(messageController.startUpdating_called)
-    }
-    
     func test_statePublisher() {
         // Setup Recording publishers
-        var recording = Record<Controller.State, Never>.Recording()
+        var recording = Record<DataController.State, Never>.Recording()
         
         // Setup the chain
         messageController
@@ -45,15 +39,14 @@ class MessageController_Combine_Tests: iOS13TestCase {
         weak var controller: MessageControllerMock? = messageController
         messageController = nil
         
-        controller?.delegateCallback { $0.controller(controller!, didChangeState: .localDataFetched) }
         controller?.delegateCallback { $0.controller(controller!, didChangeState: .remoteDataFetched) }
         
-        XCTAssertEqual(recording.output, [.inactive, .localDataFetched, .remoteDataFetched])
+        AssertAsync.willBeEqual(recording.output, [.localDataFetched, .remoteDataFetched])
     }
 
     func test_messageChangePublisher() {
         // Setup Recording publishers
-        var recording = Record<EntityChange<Message>, Never>.Recording()
+        var recording = Record<EntityChange<ChatMessage>, Never>.Recording()
         
         // Setup the chain
         messageController
@@ -65,7 +58,7 @@ class MessageController_Combine_Tests: iOS13TestCase {
         weak var controller: MessageControllerMock? = messageController
         messageController = nil
 
-        let newMessage: Message = .unique
+        let newMessage: ChatMessage = .unique
         controller?.message_simulated = newMessage
         controller?.delegateCallback {
             $0.messageController(controller!, didChangeMessage: .create(newMessage))

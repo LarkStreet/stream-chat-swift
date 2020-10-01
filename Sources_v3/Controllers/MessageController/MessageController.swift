@@ -5,41 +5,53 @@
 import CoreData
 import Foundation
 
-public extension Client {
+public extension _ChatClient {
     /// Creates a new `MessageController` for the message with the provided id.
-    /// - Parameter cid: The channel identifer the message relates to.
+    /// - Parameter cid: The channel identifier the message relates to.
     /// - Parameter messageId: The message identifier.
     /// - Returns: A new instance of `MessageController`.
-    func messageController(cid: ChannelId, messageId: MessageId) -> MessageControllerGeneric<ExtraData> {
+    func messageController(cid: ChannelId, messageId: MessageId) -> _ChatMessageController<ExtraData> {
         .init(client: self, cid: cid, messageId: messageId)
     }
 }
 
-/// A convenience typealias for `MessageControllerGeneric` with `DefaultDataTypes`.
-public typealias MessageController = MessageControllerGeneric<DefaultDataTypes>
+/// `ChatMessageController` is a controller class which allows observing and mutating a chat message entity.
+///
+/// Learn more about `ChatMessageController` and its usage in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#messages).
+///
+/// - Note: `ChatMessageController` is a typealias of `_ChatMessageController` with default extra data. If you're using
+/// custom extra data, create your own typealias of `_ChatMessageController`.
+///
+/// Learn more about using custom extra data in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#working-with-extra-data).
+///
+public typealias ChatMessageController = _ChatMessageController<DefaultExtraData>
 
-/// The `MessageControllerGeneric` is designed to edit the message it was created with.
-public class MessageControllerGeneric<ExtraData: ExtraDataTypes>: Controller, DelegateCallable {
+/// `ChatMessageController` is a controller class which allows observing and mutating a chat message entity.
+///
+/// Learn more about `ChatMessageController` and its usage in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#messages).
+///
+/// - Note: `_ChatMessageController` type is not meant to be used directly. If you're using default extra data, use
+/// `ChatMessageController` typealias instead. If you're using custom extra data, create your own typealias
+/// of `_ChatMessageController`.
+///
+/// Learn more about using custom extra data in our [cheat sheet](https://github.com/GetStream/stream-chat-swift/wiki/StreamChat-SDK-Cheat-Sheet#working-with-extra-data).
+///
+public class _ChatMessageController<ExtraData: ExtraDataTypes>: DataController, DelegateCallable {
     /// The `ChatClient` instance this controller belongs to.
-    public let client: Client<ExtraData>
+    public let client: _ChatClient<ExtraData>
     
-    /// The channel identifier the message is related to.
+    /// The identified of the channel the message belongs to.
     public let cid: ChannelId
     
-    /// The message identifier this controller manages.
+    /// The identified of the message this controllers represents.
     public let messageId: MessageId
     
-    /// The message data
-    /// Always returns `nil` if `startUpdating` was not called
-    /// To observe the updates of this value, set your class as a delegate of this controller and call `startUpdating`.
-    public var message: MessageModel<ExtraData>? {
-        guard state != .inactive else {
-            log.warning("Accessing `message` before calling `startUpdating()` always results in `nil`.")
-            return nil
-        }
-        
-        return messageObserver.item
-    }
+    /// The message object this controller represents.
+    ///
+    /// To observe changes of the message, set your class as a delegate of this controller or use the provided
+    /// `Combine` publishers.
+    ///
+    public var message: _ChatMessage<ExtraData>? { messageObserver.item }
     
     private let environment: Environment
     
@@ -54,6 +66,7 @@ public class MessageControllerGeneric<ExtraData: ExtraDataTypes>: Controller, De
         didSet {
             stateMulticastDelegate.mainDelegate = multicastDelegate.mainDelegate
             stateMulticastDelegate.additionalDelegates = multicastDelegate.additionalDelegates
+            startMessageObserver()
         }
     }
     
@@ -78,34 +91,15 @@ public class MessageControllerGeneric<ExtraData: ExtraDataTypes>: Controller, De
     ///   - cid: The channel identifier the message belongs to.
     ///   - messageId: The message identifier.
     ///   - environment: The source of internal dependencies.
-    init(client: Client<ExtraData>, cid: ChannelId, messageId: MessageId, environment: Environment = .init()) {
+    init(client: _ChatClient<ExtraData>, cid: ChannelId, messageId: MessageId, environment: Environment = .init()) {
         self.client = client
         self.cid = cid
         self.messageId = messageId
         self.environment = environment
     }
-    
-    /// Starts updating the results.
-    ///
-    /// 1. **Synchronously** loads the data for the referenced objects from the local cache. These data are immediately available in
-    /// the `message` property of the controller once this method returns. Any further changes to the data are communicated
-    /// using `delegate`.
-    ///
-    /// 2. It also **asynchronously** fetches the latest version of the data from the servers. Once the remote fetch is completed,
-    /// the completion block is called. If the updated data differ from the locally cached ones, the controller uses the `delegate`
-    /// methods to inform about the changes.
-    ///
-    /// - Parameter completion: Called when the controller has finished fetching remote data.
-    ///                         If the data fetching fails, the `error` variable contains more details about the problem.
-    public func startUpdating(_ completion: ((Error?) -> Void)? = nil) {
-        do {
-            try messageObserver.startObserving()
-        } catch {
-            callback { completion?(ClientError(with: error)) }
-            return
-        }
-        
-        state = .localDataFetched
+
+    override public func synchronize(_ completion: ((Error?) -> Void)? = nil) {
+        startMessageObserver()
         
         messageUpdater.getMessage(cid: cid, messageId: messageId) { [weak self] error in
             guard let self = self else { return }
@@ -113,16 +107,25 @@ public class MessageControllerGeneric<ExtraData: ExtraDataTypes>: Controller, De
             self.callback { completion?(error) }
         }
     }
+    
+    /// Initializing of `messageObserver` will start local data observing.
+    /// In most cases it will be done by accusing `messages` but it's possible that only
+    /// changes will be observed.
+    private func startMessageObserver() {
+        _ = messageObserver
+    }
 }
 
 // MARK: - Actions
 
-public extension MessageControllerGeneric {
+public extension _ChatMessageController {
     /// Edits the message this controller manages with the provided values.
+    ///
     /// - Parameters:
     ///   - text: The updated message text.
     ///   - completion: The completion. Will be called on a **callbackQueue** when the network request is finished.
     ///                 If request fails, the completion will be called with an error.
+    ///
     func editMessage(text: String, completion: ((Error?) -> Void)? = nil) {
         messageUpdater.editMessage(messageId: messageId, text: text) { [weak self] error in
             self?.callback {
@@ -131,10 +134,12 @@ public extension MessageControllerGeneric {
         }
     }
     
-    /// Delete the message this controller manages.
+    /// Deletes the message this controller manages.
+    ///
     /// - Parameters:
     ///   - completion: The completion. Will be called on a **callbackQueue** when the network request is finished.
     ///                 If request fails, the completion will be called with an error.
+    ///
     func deleteMessage(completion: ((Error?) -> Void)? = nil) {
         messageUpdater.deleteMessage(messageId: messageId) { [weak self] error in
             self?.callback {
@@ -146,14 +151,14 @@ public extension MessageControllerGeneric {
 
 // MARK: - Environment
 
-extension MessageControllerGeneric {
+extension _ChatMessageController {
     struct Environment {
         var messageObserverBuilder: (
             _ context: NSManagedObjectContext,
             _ fetchRequest: NSFetchRequest<MessageDTO>,
-            _ itemCreator: @escaping (MessageDTO) -> MessageModel<ExtraData>,
+            _ itemCreator: @escaping (MessageDTO) -> _ChatMessage<ExtraData>,
             _ fetchedResultsControllerType: NSFetchedResultsController<MessageDTO>.Type
-        ) -> EntityDatabaseObserver<MessageModel<ExtraData>, MessageDTO> = EntityDatabaseObserver.init
+        ) -> EntityDatabaseObserver<_ChatMessage<ExtraData>, MessageDTO> = EntityDatabaseObserver.init
         
         var messageUpdaterBuilder: (
             _ database: DatabaseContainer,
@@ -165,63 +170,75 @@ extension MessageControllerGeneric {
 
 // MARK: - Private
 
-private extension MessageControllerGeneric {
-    func createMessageObserver() -> EntityDatabaseObserver<MessageModel<ExtraData>, MessageDTO> {
-        environment.messageObserverBuilder(
+private extension _ChatMessageController {
+    func createMessageObserver() -> EntityDatabaseObserver<_ChatMessage<ExtraData>, MessageDTO> {
+        let observer = environment.messageObserverBuilder(
             client.databaseContainer.viewContext,
             MessageDTO.message(withID: messageId),
             { $0.asModel() }, // swiftlint:disable:this opening_brace
             NSFetchedResultsController<MessageDTO>.self
         )
+        
+        do {
+            try observer.startObserving()
+            state = .localDataFetched
+        } catch {
+            log.error("Failed to perform fetch request with error: \(error). This is an internal error.")
+            state = .localDataFetchFailed(ClientError(with: error))
+        }
+        
+        return observer
     }
 }
 
 // MARK: - Delegate
 
-/// `MessageController` uses this protocol to communicate changes to its delegate.
+/// `ChatMessageController` uses this protocol to communicate changes to its delegate.
 ///
 /// This protocol can be used only when no custom extra data are specified.
-/// If you're using custom extra data types, please use `MessageControllerDelegateGeneric` instead.
-public protocol MessageControllerDelegate: ControllerStateDelegate {
-    /// The controller observed a change in the `Message`.
-    func messageController(_ controller: MessageController, didChangeMessage change: EntityChange<Message>)
+/// If you're using custom extra data types, please use `_MessageControllerDelegate` instead.
+///
+public protocol ChatMessageControllerDelegate: DataControllerStateDelegate {
+    /// The controller observed a change in the `ChatMessage` its observes.
+    func messageController(_ controller: ChatMessageController, didChangeMessage change: EntityChange<ChatMessage>)
 }
 
-public extension MessageControllerDelegate {
-    func messageController(_ controller: MessageController, didChangeMessage change: EntityChange<Message>) {}
+public extension ChatMessageControllerDelegate {
+    func messageController(_ controller: ChatMessageController, didChangeMessage change: EntityChange<ChatMessage>) {}
 }
 
-/// `MessageControllerDelegateGeneric` uses this protocol to communicate changes to its delegate.
+/// `_MessageControllerDelegate` uses this protocol to communicate changes to its delegate.
 ///
 /// If you're **not** using custom extra data types, you can use a convenience version of this protocol
 /// named `MessageControllerDelegate`, which hides the generic types, and make the usage easier.
-public protocol MessageControllerDelegateGeneric: ControllerStateDelegate {
+///
+public protocol _MessageControllerDelegate: DataControllerStateDelegate {
     associatedtype ExtraData: ExtraDataTypes
     
-    /// The controller observed a change in the `MessageModel<ExtraData>`.
+    /// The controller observed a change in the `ChatMessage` its observes.
     func messageController(
-        _ controller: MessageControllerGeneric<ExtraData>,
-        didChangeMessage change: EntityChange<MessageModel<ExtraData>>
+        _ controller: _ChatMessageController<ExtraData>,
+        didChangeMessage change: EntityChange<_ChatMessage<ExtraData>>
     )
 }
 
-public extension MessageControllerDelegateGeneric {
+public extension _MessageControllerDelegate {
     func messageController(
-        _ controller: MessageControllerGeneric<ExtraData>,
-        didChangeMessage change: EntityChange<MessageModel<ExtraData>>
+        _ controller: _ChatMessageController<ExtraData>,
+        didChangeMessage change: EntityChange<_ChatMessage<ExtraData>>
     ) {}
 }
 
-final class AnyMessageControllerDelegate<ExtraData: ExtraDataTypes>: MessageControllerDelegateGeneric {
+final class AnyMessageControllerDelegate<ExtraData: ExtraDataTypes>: _MessageControllerDelegate {
     weak var wrappedDelegate: AnyObject?
-    private var _controllerDidChangeState: (Controller, Controller.State) -> Void
-    private var _messageControllerDidChangeMessage: (MessageControllerGeneric<ExtraData>, EntityChange<MessageModel<ExtraData>>)
+    private var _controllerDidChangeState: (DataController, DataController.State) -> Void
+    private var _messageControllerDidChangeMessage: (_ChatMessageController<ExtraData>, EntityChange<_ChatMessage<ExtraData>>)
         -> Void
     
     init(
         wrappedDelegate: AnyObject?,
-        controllerDidChangeState: @escaping (Controller, Controller.State) -> Void,
-        messageControllerDidChangeMessage: @escaping (MessageControllerGeneric<ExtraData>, EntityChange<MessageModel<ExtraData>>)
+        controllerDidChangeState: @escaping (DataController, DataController.State) -> Void,
+        messageControllerDidChangeMessage: @escaping (_ChatMessageController<ExtraData>, EntityChange<_ChatMessage<ExtraData>>)
             -> Void
     ) {
         self.wrappedDelegate = wrappedDelegate
@@ -229,20 +246,20 @@ final class AnyMessageControllerDelegate<ExtraData: ExtraDataTypes>: MessageCont
         _messageControllerDidChangeMessage = messageControllerDidChangeMessage
     }
 
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         _controllerDidChangeState(controller, state)
     }
 
     func messageController(
-        _ controller: MessageControllerGeneric<ExtraData>,
-        didChangeMessage change: EntityChange<MessageModel<ExtraData>>
+        _ controller: _ChatMessageController<ExtraData>,
+        didChangeMessage change: EntityChange<_ChatMessage<ExtraData>>
     ) {
         _messageControllerDidChangeMessage(controller, change)
     }
 }
 
 extension AnyMessageControllerDelegate {
-    convenience init<Delegate: MessageControllerDelegateGeneric>(_ delegate: Delegate) where Delegate.ExtraData == ExtraData {
+    convenience init<Delegate: _MessageControllerDelegate>(_ delegate: Delegate) where Delegate.ExtraData == ExtraData {
         self.init(
             wrappedDelegate: delegate,
             controllerDidChangeState: { [weak delegate] in delegate?.controller($0, didChangeState: $1) },
@@ -251,8 +268,8 @@ extension AnyMessageControllerDelegate {
     }
 }
 
-extension AnyMessageControllerDelegate where ExtraData == DefaultDataTypes {
-    convenience init(_ delegate: MessageControllerDelegate?) {
+extension AnyMessageControllerDelegate where ExtraData == DefaultExtraData {
+    convenience init(_ delegate: ChatMessageControllerDelegate?) {
         self.init(
             wrappedDelegate: delegate,
             controllerDidChangeState: { [weak delegate] in delegate?.controller($0, didChangeState: $1) },
@@ -261,7 +278,7 @@ extension AnyMessageControllerDelegate where ExtraData == DefaultDataTypes {
     }
 }
  
-public extension MessageControllerGeneric {
+public extension _ChatMessageController {
     /// Sets the provided object as a delegate of this controller.
     ///
     /// - Note: If you don't use custom extra data types, you can set the delegate directly using `controller.delegate = self`.
@@ -270,19 +287,19 @@ public extension MessageControllerGeneric {
     ///
     /// - Parameter delegate: The object used as a delegate. It's referenced weakly, so you need to keep the object
     /// alive if you want keep receiving updates.
-    func setDelegate<Delegate: MessageControllerDelegateGeneric>(_ delegate: Delegate?) where Delegate.ExtraData == ExtraData {
+    func setDelegate<Delegate: _MessageControllerDelegate>(_ delegate: Delegate?) where Delegate.ExtraData == ExtraData {
         multicastDelegate.mainDelegate = delegate.flatMap(AnyMessageControllerDelegate.init)
     }
 }
 
-public extension MessageController {
-    /// Set the delegate of `MessageController` to observe the changes in the system.
+public extension ChatMessageController {
+    /// Set the delegate of `ChatMessageController` to observe the changes in the system.
     ///
     /// - Note: The delegate can be set directly only if you're **not** using custom extra data types. Due to the current
     /// limits of Swift and the way it handles protocols with associated types, it's required to use `setDelegate` method
     /// instead to set the delegate, if you're using custom extra data types.
-    var delegate: MessageControllerDelegate? {
+    var delegate: ChatMessageControllerDelegate? {
         set { multicastDelegate.mainDelegate = AnyMessageControllerDelegate(newValue) }
-        get { multicastDelegate.mainDelegate?.wrappedDelegate as? MessageControllerDelegate }
+        get { multicastDelegate.mainDelegate?.wrappedDelegate as? ChatMessageControllerDelegate }
     }
 }

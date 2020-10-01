@@ -25,18 +25,6 @@ public struct MutedChannel: Decodable {
     public let created: Date
     /// A updated date.
     public let updated: Date
-    
-    /// Creates a muted channel.
-    /// - Parameters:
-    ///   - user: a user.
-    ///   - created: a created date.
-    ///   - updated: an updated date.
-    init(channel: Channel, created: Date, updated: Date, user: User) {
-        self.channel = channel
-        self.created = created
-        self.updated = updated
-        self.user = user
-    }
 }
 
 /// A response for the muted channel.

@@ -7,10 +7,8 @@ import Foundation
 
 @objc(ChannelReadDTO)
 class ChannelReadDTO: NSManagedObject {
-    static let entityName = "ChannelReadDTO"
-    
     @NSManaged var lastReadAt: Date
-    @NSManaged var unreadMessageCount: Int
+    @NSManaged var unreadMessageCount: Int32
     
     // MARK: - Relationships
     
@@ -51,7 +49,7 @@ class ChannelReadDTO: NSManagedObject {
     }
     
     /// Snapshots the current state of `ChannelReadDTO` and returns an immutable model object from it.
-    func asModel<ExtraData: ExtraDataTypes>() -> ChannelReadModel<ExtraData> { .create(fromDTO: self) }
+    func asModel<ExtraData: ExtraDataTypes>() -> _ChatChannelRead<ExtraData> { .create(fromDTO: self) }
 }
 
 // MARK: Saving and loading the data
@@ -66,7 +64,7 @@ extension NSManagedObjectContext {
         dto.user = try saveUser(payload: payload.user)
         
         dto.lastReadAt = payload.lastReadAt
-        dto.unreadMessageCount = payload.unreadMessagesCount
+        dto.unreadMessageCount = Int32(payload.unreadMessagesCount)
         
         return dto
     }
@@ -80,8 +78,8 @@ extension NSManagedObjectContext {
     }
 }
 
-extension ChannelReadModel {
-    fileprivate static func create(fromDTO dto: ChannelReadDTO) -> ChannelReadModel {
-        .init(lastReadAt: dto.lastReadAt, unreadMessagesCount: dto.unreadMessageCount, user: dto.user.asModel())
+extension _ChatChannelRead {
+    fileprivate static func create(fromDTO dto: ChannelReadDTO) -> _ChatChannelRead {
+        .init(lastReadAt: dto.lastReadAt, unreadMessagesCount: Int(dto.unreadMessageCount), user: dto.user.asModel())
     }
 }

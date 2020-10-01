@@ -6,140 +6,169 @@ import Combine
 import StreamChatClient
 import UIKit
 
+///
+/// # CombineSimpleChannelsViewController
+///
+/// A `UITableViewController` subclass that displays and manages the list of channels.  It uses the `ChannelListController`  class to make calls to the Stream Chat API
+/// and listens to events by subscribing to its combine publishers.
+///
 @available(iOS 13, *)
 class CombineSimpleChannelsViewController: UITableViewController {
-    private lazy var longPressRecognizer = UILongPressGestureRecognizer(
-        target: self,
-        action: #selector(handleLongPress)
-    )
-
-    var channelListController: ChannelListController!
+    // MARK: - Properties
     
+    ///
+    /// # channelListController
+    ///
+    ///  The property below holds the `ChannelListController` object.  It is used to make calls to the Stream Chat API and to listen to the events related to the channels list.
+    ///  After it is set, we are subscribing to `Publishers` from `ChannelController.BasePublisher` to receive updates.
+    ///  `Publishers` functionality is identical to methods from `ChannelControllerDelegate`.
+    ///  Also we need to call `channelController.synchronize()` to update local data with remote one.
+    ///  Additionally, `channelListController.client` holds a reference to the `ChatClient` which created this instance.
+    ///  It can be used to create other controllers.
+    var channelListController: ChatChannelListController! {
+        didSet {
+            subscribeToCombinePublishers()
+            channelListController.synchronize()
+        }
+    }
+    
+    ///
+    /// # chatClient
+    ///
+    ///  Exposes the `ChatClient` from `channelListController` for ease of access.
+    ///
     var chatClient: ChatClient {
         channelListController.client
     }
     
-    var detailViewController: CombineSimpleChatViewController?
+    // MARK: - Combine
     
+    ///
+    /// # cancellables
+    ///
+    ///  Holds the cancellable objects created from subscribing to the combine publishers inside `channelListController`.
+    ///
     private lazy var cancellables: Set<AnyCancellable> = []
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        subscribeToCombinePublishers()
-        
-        // Do any additional setup after loading the view.
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "Settings",
-            style: .plain,
-            target: self,
-            action: #selector(handleSettingsButton)
-        )
-
-        let addButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(insertNewObject(_:)))
-        navigationItem.rightBarButtonItem = addButton
-        if let split = splitViewController {
-            let controllers = split.viewControllers
-            detailViewController = (controllers[controllers.count - 1] as! UINavigationController)
-                .topViewController as? CombineSimpleChatViewController
-        }
-
-        tableView.addGestureRecognizer(longPressRecognizer)
-    }
-    
+    ///
+    /// # subscribeToCombinePublishers
+    ///
+    ///  You need to subscribe to `Publishers` to start observing updates from `ChannelListController`.
+    ///
     private func subscribeToCombinePublishers() {
+        ///
+        /// `statePublisher` will send changes related to `State` of `ChannelListController`,
+        /// You can use it for presenting some loading indicator.
+        /// While using `Combine` publishers, the initial `state` of the contraller will be `.localDataFetched`
+        /// (or `localDataFetchFailed` in case of some internal error with DB, it should be very rare case).
+        /// It means that if there is some local data is stored in DB related to this controller, it will be available from the start. After calling `channelListController.synchronize()`
+        /// the controller will try to update local data with remote one and change it's state to `.remoteDataFetched` (or `.remoteDataFetchFailed` in case of failed API request).
+        ///
         channelListController
             .statePublisher
             .sink { (state) in
                 print("State changed: \(state)")
             }
             .store(in: &cancellables)
-            
+        
+        ///
+        /// `channelsChangesPublisher` will send changes related to `channels` changes.
+        /// This subscription will update `tableView` with received changes.
+        ///
         channelListController
             .channelsChangesPublisher
             .receive(on: RunLoop.main)
-            .sink { [weak self] in self?.tableView.applyListChanges(changes: $0) }
+            /// Apply changes to tableView.
+            .sink { [weak self] changes in
+                let tableView = self?.tableView
+                
+                tableView?.beginUpdates()
+                
+                for change in changes {
+                    switch change {
+                    case let .insert(_, index: index):
+                        tableView?.insertRows(at: [index], with: .automatic)
+                    case let .move(_, fromIndex: fromIndex, toIndex: toIndex):
+                        tableView?.moveRow(at: fromIndex, to: toIndex)
+                    case let .update(_, index: index):
+                        tableView?.reloadRows(at: [index], with: .automatic)
+                    case let .remove(_, index: index):
+                        tableView?.deleteRows(at: [index], with: .automatic)
+                    }
+                }
+                
+                tableView?.endUpdates()
+            }
             .store(in: &cancellables)
     }
-
-    override func viewWillAppear(_ animated: Bool) {
-        clearsSelectionOnViewWillAppear = splitViewController!.isCollapsed
-        super.viewWillAppear(animated)
-    }
     
-    @objc
-    func handleSettingsButton(_ sender: Any) {
-        guard let settingsViewController = UIStoryboard.settings.instantiateInitialViewController() else {
-            return
-        }
-        
-        present(settingsViewController, animated: true)
-    }
+    // MARK: - UITableViewDataSource
 
-    @objc
-    func insertNewObject(_ sender: Any) {
-        let id = UUID().uuidString
-        let controller = chatClient.channelController(
-            createChannelWithId: .init(type: .messaging, id: id),
-            members: [chatClient.currentUserId],
-            extraData: .init(name: "Channel" + id.prefix(4), imageURL: nil)
-        )
-        controller.startUpdating()
-    }
-
-    // MARK: - Segues
-
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "showDetail" {
-            if let indexPath = tableView.indexPathForSelectedRow {
-                let channel = channelListController.channels[indexPath.row]
-                let controller = (segue.destination as! UINavigationController)
-                    .topViewController as! CombineSimpleChatViewController
-                controller.channelController = chatClient.channelController(for: channel.cid)
-                controller.navigationItem.leftBarButtonItem = splitViewController?.displayModeButtonItem
-                controller.navigationItem.leftItemsSupplementBackButton = true
-                detailViewController = controller
-            }
-        }
-    }
-
-    // MARK: - Table View
-
+    ///
+    /// The methods below are part of the `UITableViewDataSource` protocol and will be called when the `UITableView` needs information which will be given by the
+    /// `channelListController` object.
+    ///
+    
+    ///
+    /// # numberOfRowsInSection
+    ///
+    /// The method below returns the current loaded channels count `channelListController.channels.count`. It will increase as more channels are loaded or decrease as
+    /// channels are deleted.
+    ///
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         channelListController.channels.count
     }
 
+    ///
+    /// # cellForRowAt
+    ///
+    /// The method below returns a cell configured based on the channel in position `indexPath.row` of `channelListController.channels`.
+    ///
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
         let channel = channelListController.channels[indexPath.row]
-        cell.textLabel?.text = channel.extraData.name ?? channel.cid.description
         
-        // set channel cell subtitle to latest message
-        if let latestMessage = channel.latestMessages.first {
+        let subtitle: String
+        if let typingMembersInfo = createTypingMemberString(for: channel) {
+            subtitle = typingMembersInfo
+        } else if let latestMessage = channel.latestMessages.first {
             let author = latestMessage.author.name ?? latestMessage.author.id.description
-            cell.detailTextLabel?.text = "\(author): \(latestMessage.text)"
+            subtitle = "\(author): \(latestMessage.text)"
         } else {
-            cell.detailTextLabel?.text = "No messages"
+            subtitle = "No messages"
         }
         
-        if channel.isUnread {
-            // set channel name font to bold
-            cell.textLabel?.font = UIFont.boldSystemFont(ofSize: cell.textLabel?.font.pointSize ?? UIFont.labelFontSize)
-            
-            // set accessory view to number of unread messages
-            let unreadLabel = UILabel()
-            unreadLabel.text = "\(channel.unreadCount.messages)"
-            cell.accessoryView = unreadLabel
+        return channelCellWithName(
+            channel.extraData.name ?? channel.cid.description,
+            subtitle: subtitle,
+            unreadCount: channel.unreadCount.messages
+        )
+    }
+    
+    // MARK: - UITableViewDelegate
+
+    ///
+    /// The methods below are part of the `UITableViewDelegate` protocol and will be called when some event happened in the `UITableView`  which will cause some action
+    /// done by the `channelController` object.
+    ///
+    
+    ///
+    /// # willDisplay
+    ///
+    /// The method below handles the case when the last cell in the channels list is displayed by calling `channelListController.loadNextChannels()` to fetch more
+    /// channels.
+    ///
+    override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if indexPath.section == tableView.numberOfSections - 1,
+            indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1 {
+            channelListController.loadNextChannels()
         }
-        
-        return cell
     }
-
-    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the specified item to be editable.
-        true
-    }
-
+    
+    ///
+    /// # commit editingStyle
+    ///
+    /// The method below pressing the delete button after swiping a channel cell by calling `channelController.deleteChannel()`
+    ///
     override func tableView(
         _ tableView: UITableView,
         commit editingStyle: UITableViewCell.EditingStyle,
@@ -148,23 +177,61 @@ class CombineSimpleChannelsViewController: UITableViewController {
         switch editingStyle {
         case .delete:
             let channelId = channelListController.channels[indexPath.row].cid
+            /// After successful channel deletion you will receive updates from `channelsChangesPublisher` and channel will be removed from `tableView`.
             chatClient.channelController(for: channelId).deleteChannel()
         default: return
         }
     }
+    
+    // MARK: - Actions
 
-    override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        if indexPath.section == tableView.numberOfSections - 1,
-            indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1 {
-            channelListController.loadNextChannels()
+    ///
+    /// The methods below are called when the user presses some button to open the settings screen or create a channel, or long presses a channel cell in the table view.
+    ///
+    
+    ///
+    /// # handleSettingsButton
+    ///
+    /// The method below is called when the user taps the settings button. Before presenting the view controller, `settingsViewController.currentUserController` is set
+    /// so that view controller can get information and take actions that affect the current user.
+    ///
+    @objc
+    func handleSettingsButton(_ sender: Any) {
+        guard
+            let navigationViewController = UIStoryboard.settings.instantiateInitialViewController(),
+            let settingsViewController = navigationViewController.children.first as? SettingsViewController
+        else {
+            return
         }
+        
+        settingsViewController.currentUserController = channelListController.client.currentUserController()
+        present(navigationViewController, animated: true)
     }
-}
 
-// MARK: - Private
-
-@available(iOS 13, *)
-private extension CombineSimpleChannelsViewController {
+    ///
+    /// # handleAddChannelButton
+    ///
+    /// The method below is called when the user taps the add channel button. It creates the channel by calling `chatClient.channelController(createChannelWithId: ...)`
+    ///
+    @objc
+    func handleAddChannelButton(_ sender: Any) {
+        let id = UUID().uuidString
+        let controller = chatClient.channelController(
+            createChannelWithId: .init(type: .messaging, id: id),
+            members: [chatClient.currentUserId],
+            extraData: .init(name: "Channel" + id.prefix(4), imageURL: nil)
+        )
+        controller.synchronize()
+    }
+    
+    ///
+    /// # handleLongPress
+    ///
+    /// The method below handles long press on channel cells by displaying a `UIAlertController` with many actions that can be taken on the `channelController` such
+    /// as `updateChannel`, `muteChannel`, `unmuteChannel`, ``showChannel`, and `hideChannel`.
+    /// After succesfull channel modifcation you will receive updates from `channelsChangesPublisher` so you will be able to update your UI.
+    /// (e.g. show "mute" icon in `UITableViewCell`)
+    ///
     @objc
     func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         guard
@@ -204,25 +271,75 @@ private extension CombineSimpleChannelsViewController {
 
         present(actionSheet, animated: true)
     }
-}
-
-extension UITableView {
-    func applyListChanges<T: Equatable>(changes: [ListChange<T>]) {
-        beginUpdates()
-        
-        for change in changes {
-            switch change {
-            case let .insert(_, index: index):
-                insertRows(at: [index], with: .automatic)
-            case let .move(_, fromIndex: fromIndex, toIndex: toIndex):
-                moveRow(at: fromIndex, to: toIndex)
-            case let .update(_, index: index):
-                reloadRows(at: [index], with: .automatic)
-            case let .remove(_, index: index):
-                deleteRows(at: [index], with: .automatic)
+    
+    // MARK: - Segues
+    
+    ///
+    /// # prepareForSegue
+    ///
+    /// The method below handles the segue to `CombineSimpleChatViewController`. It passes down to it a reference to a `ChannelController` for the respective channel so it
+    /// can display and manage it.
+    ///
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "showDetail" {
+            if let indexPath = tableView.indexPathForSelectedRow {
+                let channel = channelListController.channels[indexPath.row]
+                let controller = (segue.destination as! UINavigationController)
+                    .topViewController as! CombineSimpleChatViewController
+                
+                /// Pass down reference to `ChannelController`.
+                controller.channelController = chatClient.channelController(for: channel.cid)
+                
+                controller.navigationItem.leftBarButtonItem = splitViewController?.displayModeButtonItem
+                controller.navigationItem.leftItemsSupplementBackButton = true
+                detailViewController = controller
             }
         }
+    }
+    
+    // MARK: - UI code
+
+    ///
+    /// From here on, you'll see mostly UI code that's not related to the `ChannelListController` usage.
+    ///
+    var detailViewController: CombineSimpleChatViewController?
+    
+    private lazy var longPressRecognizer = UILongPressGestureRecognizer(
+        target: self,
+        action: #selector(handleLongPress)
+    )
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
         
-        endUpdates()
+        /// Do any additional setup after loading the view.
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Settings",
+            style: .plain,
+            target: self,
+            action: #selector(handleSettingsButton)
+        )
+
+        let addButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(handleAddChannelButton(_:)))
+        navigationItem.rightBarButtonItem = addButton
+        if let split = splitViewController {
+            let controllers = split.viewControllers
+            detailViewController = (controllers[controllers.count - 1] as! UINavigationController)
+                .topViewController as? CombineSimpleChatViewController
+        }
+
+        tableView.addGestureRecognizer(longPressRecognizer)
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        clearsSelectionOnViewWillAppear = splitViewController!.isCollapsed
+        super.viewWillAppear(animated)
+    }
+
+    // MARK: - Table View
+
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        /// Return false if you do not want the specified item to be editable.
+        true
     }
 }

@@ -6,14 +6,14 @@ import Combine
 import UIKit
 
 @available(iOS 13, *)
-extension MessageControllerGeneric {
+extension _ChatMessageController {
     /// A publisher emitting a new value every time the state of the controller changes.
-    public var statePublisher: AnyPublisher<Controller.State, Never> {
+    public var statePublisher: AnyPublisher<DataController.State, Never> {
         basePublishers.state.keepAlive(self)
     }
     
     /// A publisher emitting a new value every time the message changes.
-    public var messageChangePublisher: AnyPublisher<EntityChange<MessageModel<ExtraData>>, Never> {
+    public var messageChangePublisher: AnyPublisher<EntityChange<_ChatMessage<ExtraData>>, Never> {
         basePublishers.messageChange.keepAlive(self)
     }
     
@@ -22,37 +22,32 @@ extension MessageControllerGeneric {
     /// and expose the published values by mapping them to a read-only `AnyPublisher` type.
     class BasePublishers {
         /// The wrapper controller
-        unowned let controller: MessageControllerGeneric
+        unowned let controller: _ChatMessageController
         
         /// A backing subject for `statePublisher`.
-        let state: CurrentValueSubject<Controller.State, Never>
+        let state: CurrentValueSubject<DataController.State, Never>
         
         /// A backing subject for `messageChangePublisher`.
-        let messageChange: PassthroughSubject<EntityChange<MessageModel<ExtraData>>, Never> = .init()
+        let messageChange: PassthroughSubject<EntityChange<_ChatMessage<ExtraData>>, Never> = .init()
         
-        init(controller: MessageControllerGeneric<ExtraData>) {
+        init(controller: _ChatMessageController<ExtraData>) {
             self.controller = controller
             state = .init(controller.state)
             
             controller.multicastDelegate.additionalDelegates.append(AnyMessageControllerDelegate(self))
-            
-            if controller.state == .inactive {
-                // Start updating and load the current data
-                controller.startUpdating()
-            }
         }
     }
 }
 
 @available(iOS 13, *)
-extension MessageControllerGeneric.BasePublishers: MessageControllerDelegateGeneric {
-    func controller(_ controller: Controller, didChangeState state: Controller.State) {
+extension _ChatMessageController.BasePublishers: _MessageControllerDelegate {
+    func controller(_ controller: DataController, didChangeState state: DataController.State) {
         self.state.send(state)
     }
     
     func messageController(
-        _ controller: MessageControllerGeneric<ExtraData>,
-        didChangeMessage change: EntityChange<MessageModel<ExtraData>>
+        _ controller: _ChatMessageController<ExtraData>,
+        didChangeMessage change: EntityChange<_ChatMessage<ExtraData>>
     ) {
         messageChange.send(change)
     }
