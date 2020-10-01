@@ -113,7 +113,7 @@ final class ReactionsView: UIView {
             self.reactionsView.transform = .identity
             selectedView.transform = .init(scaleX: 1.1, y: 1.1)
             selectedView.transform = .init(translationX: translation, y: translationY)
-            selectedView.transform = .init(translationX: 0, y: translationY)
+            self.reactionsView.transform = .init(translationX: 0, y: translationY)
         }
     }
     
@@ -199,7 +199,7 @@ final class ReactionsView: UIView {
         label.snp.makeConstraints { $0.width.height.equalTo(CGFloat.reactionsPickerButtonWidth).priority(999) }
                 
         label.layer.cornerRadius = CGFloat.reactionsPickerButtonWidth / 2
-        label.layer.borderColor = style.textColor.withAlphaComponent(alpha: 0.03).cgColor
+        label.layer.borderColor = #colorLiteral(red: 0.2392156863, green: 0.2745098039, blue: 0.2745098039, alpha: 1).withAlphaComponent(0.03).cgColor
         label.layer.borderWidth = 1
         
         var reactionScore = reaction.score

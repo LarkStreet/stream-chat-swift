@@ -91,7 +91,7 @@ extension ChatViewController {
         }
         
         var convertedFrameinCell = messageCell.contentView.convert(snapshot.frame, to: tableView)
-        var convertedFrame = tableView.convert(convertedFrameinCell, to: vc.view)
+        var convertedFrame = tableView.convert(convertedFrameinCell, to: backgroundViewController.view)
     
         let position = CGPoint(x: convertedFrame.origin.x + locationInView.x, y: convertedFrame.origin.y + convertedFrame.size.height)
                 
@@ -100,7 +100,7 @@ extension ChatViewController {
         
         showBackground()
 
-        var frame = vc.view.frame
+        var frame = backgroundViewController.view.frame
                 
         frame = CGRect(x: frame.origin.x, y: statusBarHeight, width: frame.width, height: frame.height - statusBarHeight)
         
@@ -142,11 +142,11 @@ extension ChatViewController {
         self.backgroundWindow = window
         self.backgroundWindow?.makeKeyAndVisible()
         
-        vc.view.addSubview(reactionsView)
+        backgroundViewController.view.addSubview(reactionsView)
         
         reactionsView.makeEdgesEqualToSuperview()
 
-        self.backgroundWindow?.rootViewController = vc
+        self.backgroundWindow?.rootViewController = backgroundViewController
         
         let view = UIView(frame: .zero)
         reactionsView.insertSubview(view, at: 0)

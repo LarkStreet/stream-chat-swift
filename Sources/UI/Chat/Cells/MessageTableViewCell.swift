@@ -463,7 +463,7 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
         if style.avatarViewStyle != nil {
             avatarView.reset()
             avatarView.isHidden = true
-            avatarView.backgroundColor = backgroundColor
+            avatarView.backgroundColor = nil
         }
         bottomEdgeInsetConstraint?.update(offset: style.edgeInsets.bottom)
         
