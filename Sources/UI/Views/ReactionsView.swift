@@ -96,15 +96,15 @@ final class ReactionsView: UIView {
             labelsStackView.addArrangedSubview(createLabel(score))
         }
         
-        let translation: CGFloat = message.isOwn ? -.messageVerticalInset : .messageVerticalInset
+        let translationX: CGFloat = message.isOwn ? -.messageVerticalInset : .messageVerticalInset
         
         var translationY: CGFloat = 0
         
-        if reactionsView.frame.maxY > frame.maxY{
-            translationY = -(reactionsView.frame.maxY - frame.maxY - .messageVerticalInset)
+        if reactionsView.frame.maxY > frame.height {
+            translationY = -(reactionsView.frame.maxY - frame.height + .messageVerticalInset)
         }
         
-        if selectedView.frame.origin.y < frame.origin.y {
+        if selectedView.frame.minY < frame.minY {
             translationY = abs(frame.minY - selectedView.frame.minY + .messageVerticalInset)
         }
                 
@@ -112,8 +112,8 @@ final class ReactionsView: UIView {
             self.alpha = 1
             self.reactionsView.transform = .identity
             selectedView.transform = .init(scaleX: 1.1, y: 1.1)
-            selectedView.transform = .init(translationX: translation, y: translationY)
-            self.reactionsView.transform = .init(translationX: 0, y: translationY)
+            selectedView.transform = .init(translationX: translationX, y: translationY)
+            self.reactionsView.transform = .init(translationX: translationX, y: translationY)
         }
     }
     
