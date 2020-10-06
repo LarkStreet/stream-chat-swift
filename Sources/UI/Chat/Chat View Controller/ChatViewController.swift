@@ -15,6 +15,9 @@ import RxCocoa
 
 /// A chat view controller of a channel.
 open class ChatViewController: ViewController, UITableViewDataSource, UITableViewDelegate {
+    let backgroundViewController = UIViewController()
+    var backgroundWindow: UIWindow?
+
     /// A chat style.
     public lazy var style = defaultStyle
     /// A default chat style. This is useful for subclasses.
