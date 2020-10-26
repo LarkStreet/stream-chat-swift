@@ -125,7 +125,7 @@ public extension Reactive where Base == ChannelPresenter {
             return .empty()
         }
         
-        guard base.channel.isUnread else {
+        guard base.channel.isUnread || Client.shared.user.mutedChannels.contains(where: { $0.channel == base.channel }) else {
             Client.shared.logger?.log("🎫↩️ Skip mark read. \(base.channel.unreadCount) at "
                 + (base.channel.unreadMessageRead?.lastReadDate.description ?? "<NoLastReadDate>"))
             return .empty()

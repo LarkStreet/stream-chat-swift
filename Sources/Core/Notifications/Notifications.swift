@@ -110,7 +110,7 @@ extension Notifications {
     ///   - message: a message.
     ///   - channel: a channel.
     public func showIfNeeded(newMessage message: Message, in channel: Channel) {
-        if disableLocalNotifications || message.user.isMuted {
+        if disableLocalNotifications || message.user.isMuted || Client.shared.user.mutedChannels.contains(where: { $0.channel == channel}) {
             return
         }
         
