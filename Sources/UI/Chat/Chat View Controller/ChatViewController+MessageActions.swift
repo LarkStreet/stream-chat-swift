@@ -60,11 +60,18 @@ extension ChatViewController {
             return nil
         }
         
-        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: message.user.name, message: nil, preferredStyle: .actionSheet)
+        alert.view.tintColor = UIColor(red: 61/255.0, green: 70/255.0, blue: 70/255.0, alpha: 1)
+        
+        if messageActions.contains(.delete), message.canDelete {
+            alert.addAction(.init(title: "Remove Message", style: .destructive, handler: { [weak self] _ in
+                self?.conformDeleting(message: message)
+            }))
+        }
         
         if messageActions.contains(.reactions), presenter.channel.config.reactionsEnabled {
             alert.addAction(.init(title: "Reactions", style: .default, handler: { [weak self] _ in
-                self?.showReactions(from: cell, in: message, locationInView: locationInView)
+                self?.showReactions(from: cell, in: message, locationInView: locationInView, moreAction: nil)
             }))
         }
         
@@ -81,7 +88,7 @@ extension ChatViewController {
         }
         
         if messageActions.contains(.copy), let copyAction = copyAction(for: message) {
-            alert.addAction(.init(title: "Copy", style: .default, handler: { _ in copyAction() }))
+            alert.addAction(.init(title: "Copy Message", style: .default, handler: { _ in copyAction() }))
         }
         
         if !message.user.isCurrent {
@@ -142,12 +149,6 @@ extension ChatViewController {
                     }))
                 }
             }
-        }
-        
-        if messageActions.contains(.delete), message.canDelete {
-            alert.addAction(.init(title: "Delete", style: .destructive, handler: { [weak self] _ in
-                self?.conformDeleting(message: message)
-            }))
         }
         
         if alert.actions.isEmpty {
@@ -355,7 +356,7 @@ extension ChatViewController {
         
         if messageActions.contains(.reactions), presenter.channel.config.reactionsEnabled {
             actions.append(UIAction(title: "Reactions", image: UIImage(systemName: "smiley")) { [weak self] _ in
-                self?.showReactions(from: cell, in: message, locationInView: locationInView)
+                self?.showReactions(from: cell, in: message, locationInView: locationInView, moreAction: nil)
             })
         }
         
@@ -372,7 +373,7 @@ extension ChatViewController {
         }
         
         if messageActions.contains(.copy), let copyAction = copyAction(for: message) {
-            actions.append(UIAction(title: "Copy", image: UIImage(systemName: "doc.on.doc")) { _ in copyAction() })
+            actions.append(UIAction(title: "Copy Message", image: UIImage(systemName: "doc.on.doc")) { _ in copyAction() })
         }
         
         if !message.user.isCurrent {
@@ -444,7 +445,7 @@ extension ChatViewController {
         }
         
         if messageActions.contains(.delete), message.canDelete {
-            actions.append(UIAction(title: "Delete",
+            actions.append(UIAction(title: "Remove Message",
                                     image: UIImage(systemName: "trash"),
                                     attributes: [.destructive]) { [weak self] _ in
                                         self?.conformDeleting(message: message)

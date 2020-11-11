@@ -301,9 +301,17 @@ open class MessageTableViewCell: UITableViewCell, Reusable {
         reactionsContainer.addSubview(reactionsTailImage)
         reactionsContainer.addSubview(reactionsLabel)
         reactionsContainer.backgroundColor = style.reactionViewStyle.backgroundColor
+        reactionsContainer.layer.masksToBounds = false
         reactionsContainer.layer.cornerRadius = style.reactionViewStyle.cornerRadius
+        reactionsContainer.layer.borderWidth = 0.5
+        reactionsContainer.layer.borderColor = UIColor(red: 51/255.0, green: 51/255.0, blue: 51/255.0, alpha: 0.03).cgColor
+        reactionsContainer.layer.shadowColor = UIColor.black.cgColor
+        reactionsContainer.layer.shadowOffset = CGSize(width: 0, height: 1)  //Here you control x and y
+        reactionsContainer.layer.shadowOpacity = 0.15
+        reactionsContainer.layer.shadowRadius = 4.0 //Here your control your blur
         reactionsTailImage.image = style.reactionViewStyle.tailImage
         reactionsTailImage.tintColor = style.reactionViewStyle.backgroundColor
+        reactionsTailImage.isHidden = true
         let reactionsHeight = style.reactionViewStyle.cornerRadius * 2
         let tailAdditionalOffset: CGFloat = 2
         

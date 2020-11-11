@@ -541,6 +541,16 @@ open class ChatViewController: ViewController, UITableViewDataSource, UITableVie
             .disposed(by: disposeBag)
     }
     
+    open func tapOnMessageAvatarCell(from cell: MessageTableViewCell,
+                                     in message: Message,
+                                     tapGesture: UITapGestureRecognizer) {
+        return
+    }
+    
+    open func showReactionsList(from cell: UITableViewCell, in message: Message, locationInView: CGPoint) {
+        return
+    }
+    
 }
 
 // MARK: - Title

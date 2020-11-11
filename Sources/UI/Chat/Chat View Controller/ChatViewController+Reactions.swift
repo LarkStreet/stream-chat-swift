@@ -39,7 +39,8 @@ extension ChatViewController {
     
     func update(cell: MessageTableViewCell, forReactionsIn message: Message) {
         cell.update(reactionsString: reactionsString(for: message)) { [weak self] cell, locationInView in
-            self?.showReactions(from: cell, in: message, locationInView: locationInView)
+            self?.showReactions(from: cell, in: message, locationInView: locationInView, moreAction: nil)
+//            self?.showReactionsList(from: cell, in: message, locationInView: locationInView)
         }
     }
     
@@ -65,7 +66,7 @@ extension ChatViewController {
         return emojies.appending(score.shortString())
     }
     
-    func showReactions(from cell: UITableViewCell, in message: Message, locationInView: CGPoint) {
+    func showReactions(from cell: UITableViewCell, in message: Message, locationInView: CGPoint, moreAction: (() -> Void)?) {
         if reactionsView != nil {
             reactionsView?.removeFromSuperview()
         }
@@ -75,6 +76,7 @@ extension ChatViewController {
         reactionsView.onDismissAction = { [weak self] in
             self?.hideBackground()
         }
+        reactionsView.onMoreAction = moreAction
         reactionsView.backgroundColor = style.incomingMessage.reactionViewStyle.chatBackgroundColor
         reactionsView.reactionsView.backgroundColor = style.incomingMessage.reactionViewStyle.backgroundColor
   

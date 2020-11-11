@@ -206,13 +206,34 @@ extension ChatViewController {
             cellGestures = [TapControlEvent.default, LongPressControlEvent.default]
         }
         
+        let cellGesturesAvatar: [GestureFactory]
+        
+        if #available(iOS 13, *), useContextMenuForActions {
+            cellGesturesAvatar = [TapControlEvent.default]
+        } else {
+            cellGesturesAvatar = [TapControlEvent.default, LongPressControlEvent.default]
+        }
+        
         cell.messageStackView.rx.anyGesture(cellGestures)
             .subscribe(onNext: { [weak self, weak cell] gesture in
                 if let self = self, let cell = cell {
                     if let tapGesture = gesture as? UITapGestureRecognizer {
                         self.tapOnMessageCell(from: cell, in: message, tapGesture: tapGesture)
                     } else {
-                        self.showActions(from: cell, for: message, locationInView: gesture.location(in: cell))
+                        if let presenter = self.presenter, presenter.channel.config.reactionsEnabled {
+                            self.showReactions(from: cell, in: message, locationInView: gesture.location(in: cell)) { [weak self] in
+                                self?.showActions(from: cell, for: message, locationInView: gesture.location(in: cell))
+                            }
+                        }
+                    }
+                }
+            })
+            .disposed(by: cell.disposeBag)
+        cell.avatarView.rx.anyGesture(cellGesturesAvatar)
+            .subscribe(onNext: { [weak self, weak cell] gesture in
+                if let self = self, let cell = cell {
+                    if let tapGesture = gesture as? UITapGestureRecognizer {
+                        self.tapOnMessageAvatarCell(from: cell, in: message, tapGesture: tapGesture)
                     }
                 }
             })
@@ -229,10 +250,6 @@ extension ChatViewController {
                     return
                 }
             }
-        }
-        
-        if let presenter = presenter, presenter.channel.config.reactionsEnabled {
-            showReactions(from: cell, in: message, locationInView: tapGesture.location(in: cell))
         }
     }
     

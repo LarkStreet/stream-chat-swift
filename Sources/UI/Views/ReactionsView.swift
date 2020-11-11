@@ -18,6 +18,7 @@ final class ReactionsView: UIView {
     typealias Completion = (_ selectedType: String, _ score: Int) -> Bool?
     
     var onDismissAction: (() -> Void)?
+    var onMoreAction: (() -> Void)?
     
     private let disposeBag = DisposeBag()
     
@@ -39,7 +40,7 @@ final class ReactionsView: UIView {
         view.layer.shadowOpacity = Float(CGFloat.reactionsPickerShdowOpacity)
         return view
     }()
-    
+        
     func show(emojiReactionTypes: EmojiReactionTypes,
               at point: CGPoint,
               for message: Message,
@@ -50,6 +51,11 @@ final class ReactionsView: UIView {
         
         self.selectedView = selectedView
         addSubview(reactionsView)
+        if self.onMoreAction != nil {
+            createMoreView()
+        }
+        
+        bringSubviewToFront(reactionsView)
         
         self.emojiReactionTypes = emojiReactionTypes
         reactionScores = message.reactionScores
@@ -96,7 +102,7 @@ final class ReactionsView: UIView {
             labelsStackView.addArrangedSubview(createLabel(score))
         }
         
-        let translationX: CGFloat = message.isOwn ? -.messageVerticalInset : .messageVerticalInset
+        let translationX: CGFloat = 0
         
         var translationY: CGFloat = 0
         
@@ -181,6 +187,11 @@ final class ReactionsView: UIView {
         }
         
         return stackView
+    }
+    
+    @objc func tapMore() {
+        self.dismiss()
+        self.onMoreAction?()
     }
     
     // MARK: - Emojies
@@ -296,4 +307,35 @@ final class ReactionsView: UIView {
         
         return viewContainer
     }
+    
+    // More
+    
+    private func createMoreView() -> UIView {
+        let view = UIView()
+        view.backgroundColor = UIColor(red: 248/255.0, green: 248/255.0, blue: 248/255.0, alpha: 1)
+        let button = UIButton()
+        let title = NSAttributedString(string: "More", attributes: [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 17, weight: .semibold)])
+        button.setAttributedTitle(title, for: .normal)
+        button.setTitleColor(UIColor(red: 36/255.0, green: 29/255.0, blue: 45/255.0, alpha: 0.9), for: .normal)
+        addSubview(view)
+        view.snp.makeConstraints {
+            $0.bottom.equalTo(self.snp.bottom)
+            $0.height.equalTo(83)
+            $0.left.equalTo(self.snp.left)
+            $0.right.equalTo(self.snp.right)
+        }
+        view.addSubview(button)
+        button.snp.makeConstraints {
+            $0.right.equalTo(view.snp.right).inset(16)
+            $0.top.equalTo(view.snp.top).inset(16)
+        }
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector (tapMore))
+        tapGesture.numberOfTapsRequired = 1
+        button.addGestureRecognizer(tapGesture)
+        bringSubviewToFront(view)
+        
+        return view
+    }
+    
 }

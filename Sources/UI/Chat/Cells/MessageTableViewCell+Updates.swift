@@ -113,7 +113,7 @@ extension MessageTableViewCell {
             }
         }
         
-        reactionsOverlayView.rx.tapGesture()
+        reactionsOverlayView.rx.longPressGesture()
             .when(.recognized)
             .subscribe(onNext: { [weak self] gesture in
                 if let self = self {
